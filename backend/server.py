@@ -25,10 +25,10 @@ load_dotenv(ROOT_DIR / ".env")
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import (APIRouter, Depends, FastAPI, File, Form, HTTPException,
+from fastapi import (APIRouter, Body, Depends, FastAPI, File, Form, HTTPException,
                      Request, Response, UploadFile)
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, ValidationError, field_validator
 from pymongo.errors import DuplicateKeyError
 from starlette.middleware.cors import CORSMiddleware
 
@@ -308,11 +308,13 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
                             detail="No readable documents to analyse.")
 
     findings, warnings = await analysis.run_renewal_analysis(db, contract, user_id)
-    findings = analysis.apply_ranking(findings)
+    price_findings, price_warnings = await analysis.run_price_increase_analysis(
+        db, contract, user_id)
+    findings = analysis.apply_ranking(findings + price_findings)
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
-    return {"findings": findings, "warnings": warnings}
+    return {"findings": findings, "warnings": warnings + price_warnings}
 
 
 @api_router.get("/contracts/{contract_id}/findings")
@@ -397,6 +399,75 @@ class CorrectionInput(BaseModel):
         return v
 
 
+class PriceCorrectionInput(BaseModel):
+    increase_type: Optional[str] = None
+    increase_percent: Optional[float] = None
+    increase_amount: Optional[float] = None
+    increase_formula: Optional[str] = None
+    increase_basis: Optional[str] = None
+    price_change_date: Optional[str] = None
+    objection_window_value: Optional[int] = None
+    objection_window_unit: Optional[str] = None
+    objection_basis: Optional[str] = None
+    objection_measured_to: Optional[str] = None
+    objection_deadline_stated: Optional[str] = None
+    objection_recipient: Optional[str] = None
+    objection_method: Optional[str] = None
+
+    @field_validator("increase_type")
+    @classmethod
+    def _valid_itype(cls, v):
+        if v not in (None, "fixed_automatic", "capped", "formula", "unspecified"):
+            raise ValueError("invalid increase_type")
+        return v
+
+    @field_validator("increase_percent", "increase_amount")
+    @classmethod
+    def _non_neg_money(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("objection_window_value")
+    @classmethod
+    def _non_neg_window(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("objection_window_unit")
+    @classmethod
+    def _valid_window_unit(cls, v):
+        if v not in _UNITS:
+            raise ValueError("unit must be days/months/years")
+        return v
+
+    @field_validator("objection_basis")
+    @classmethod
+    def _valid_obj_basis(cls, v):
+        if v not in (None, "calendar", "business"):
+            raise ValueError("invalid objection_basis")
+        return v
+
+    @field_validator("objection_measured_to")
+    @classmethod
+    def _valid_obj_measured(cls, v):
+        if v not in (None, "sent", "received", "unspecified"):
+            raise ValueError("invalid objection_measured_to")
+        return v
+
+    @field_validator("price_change_date", "objection_deadline_stated")
+    @classmethod
+    def _valid_price_date(cls, v):
+        if v in (None, ""):
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
+
+
 async def _get_finding(finding_id: str, user_id: str):
     try:
         oid = ObjectId(finding_id)
@@ -420,24 +491,35 @@ async def confirm_finding(finding_id: str, user_id: str = Depends(current_user_i
 
 
 @api_router.post("/findings/{finding_id}/correct")
-async def correct_finding(finding_id: str, body: CorrectionInput,
+async def correct_finding(finding_id: str, body: dict = Body(default={}),
                           user_id: str = Depends(current_user_id)):
     from models import Finding
     oid, doc = await _get_finding(finding_id, user_id)
+    ftype = doc.get("type")
     prev = doc.get("extracted", {}) or {}
-    edits = body.model_dump()
+
+    try:
+        if ftype == "price_increase":
+            edits = PriceCorrectionInput(**body).model_dump()
+            editable = analysis.PRICE_EDITABLE_FIELDS
+            contract = await db.contracts.find_one(
+                {"_id": ObjectId(doc["contract_id"]), "user_id": user_id})
+            cav = contract.get("annual_value") if contract else None
+            recomputed = analysis.recompute_price_derived(edits, cav)
+        else:
+            edits = CorrectionInput(**body).model_dump()
+            editable = analysis.EDITABLE_FIELDS
+            recomputed = analysis.recompute_derived(edits)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
 
     # Record only fields that actually changed.
-    changed = [k for k in analysis.EDITABLE_FIELDS
-               if edits.get(k) != prev.get(k)]
+    changed = [k for k in editable if edits.get(k) != prev.get(k)]
 
-    # No-change save is a true no-op: do not touch state, original_values,
-    # corrected_fields, or any derived/accuracy-affecting field.
+    # No-change save is a true no-op.
     if not changed:
         return {"finding": Finding.from_mongo(doc).model_dump(),
                 "changed_fields": [], "no_change": True}
-
-    recomputed = analysis.recompute_derived(edits)
 
     update = {
         "extracted": recomputed["extracted"],
@@ -447,9 +529,12 @@ async def correct_finding(finding_id: str, body: CorrectionInput,
         "state": "corrected",
         "confirmed_at": utc_now_iso(),
     }
+    if "money_amount" in recomputed:
+        update["money_amount"] = recomputed["money_amount"]
+        update["money_kind"] = recomputed["money_kind"]
     # Snapshot the original (AI) values once; accumulate changed field names.
     if not doc.get("original_values"):
-        update["original_values"] = {k: prev.get(k) for k in analysis.EDITABLE_FIELDS}
+        update["original_values"] = {k: prev.get(k) for k in editable}
     prior_corrected = doc.get("corrected_fields", []) or []
     update["corrected_fields"] = sorted(set(prior_corrected) | set(changed))
 

@@ -144,8 +144,89 @@ async def extract(chunks: list[dict]) -> dict:
     return _parse_json(resp)
 
 
+# --------------------------------------------------------------------------
+# Stage 7A — price_increase
+# --------------------------------------------------------------------------
+LOCATE_PRICE_SYSTEM = (
+    "You are a contract-analysis locator. You receive numbered chunks of a "
+    "contract. Identify ONLY the chunks that may contain language about a PRICE "
+    "or FEE INCREASE: automatic annual increases, escalation, uplift, indexation "
+    "(CPI/RPI/index-linked), rate changes, price adjustment, a cap or maximum on "
+    "increases, or a right to object to a price increase. Return STRICT JSON: "
+    "{\"chunk_ids\": [\"c_01\", ...]}. Only possibly-relevant ids. No prose."
+)
+
+EXTRACT_PRICE_SYSTEM = (
+    "You extract a single price_increase finding from the supplied contract "
+    "chunks. Output STRICT JSON only, no prose.\n"
+    "HARD RULES:\n"
+    "- Anything not explicitly stated in the supplied text is null. Never "
+    "infer, estimate, repair, or reconstruct missing contract language.\n"
+    "- Extract only what the contract explicitly states about how the price/fee "
+    "can change. Do NOT invent numbers, percentages, dates, or an index.\n"
+    "- increase_type must be one of: \"fixed_automatic\" (a set percentage or "
+    "amount that applies automatically), \"capped\" (increases allowed only up "
+    "to a stated maximum), \"formula\" (tied to an external index/formula such "
+    "as CPI), or \"unspecified\" (an increase is mentioned but the type or "
+    "amount is not clear).\n"
+    "- increase_percent is a NUMBER of percent (e.g. 3 for 3%). For a capped "
+    "increase, increase_percent is the MAXIMUM permitted percent.\n"
+    "- increase_amount is an absolute money amount ONLY if the contract states a "
+    "fixed money increase instead of a percentage.\n"
+    "- increase_formula is the verbatim formula/index text (e.g. \"CPI + 2%\").\n"
+    "- price_change_date / objection_deadline_stated are ISO YYYY-MM-DD ONLY if "
+    "an explicit calendar date is stated; otherwise null.\n"
+    "- Every source quote is copied VERBATIM from the supplied chunk, max 400 "
+    "characters, and must echo the chunk_id it came from.\n"
+    "- Never output document_id, page number, section number, or char_offset — "
+    "the server resolves those.\n"
+    "- Every populated field must have a supporting source purpose. Repeat the "
+    "SAME quote+chunk_id once per purpose when one clause supports several.\n"
+    "- If there is no price/fee increase content at all, return "
+    "{\"found\": false}.\n"
+    "Schema when found:\n"
+    "{\"found\": true, \"increase_type\": "
+    "\"fixed_automatic|capped|formula|unspecified|null\", "
+    "\"increase_percent\": number|null, \"increase_amount\": number|null, "
+    "\"increase_formula\": str|null, \"increase_basis\": str|null, "
+    "\"price_change_date\": \"YYYY-MM-DD|null\", "
+    "\"objection_window_value\": int|null, \"objection_window_unit\": "
+    "\"days|months|years|null\", \"objection_basis\": \"calendar|business|null\", "
+    "\"objection_measured_to\": \"sent|received|unspecified|null\", "
+    "\"objection_deadline_stated\": \"YYYY-MM-DD|null\", \"objection_recipient\": "
+    "str|null, \"objection_method\": str|null, \"sources\": [{\"purpose\": "
+    "\"increase|objection|effective_date|increase_basis|value\", \"chunk_id\": "
+    "\"c_xx\", \"quote\": \"verbatim <=400 chars\"}], \"confidence\": "
+    "\"high|medium|low\"}"
+)
+
+
+async def locate_price(chunks: list[dict]) -> list[str]:
+    chat = _new_chat(LOCATE_PRICE_SYSTEM)
+    prompt = (
+        "Chunks:\n\n" + _render_chunks(chunks, include_text=False) +
+        "\n\nReturn JSON {\"chunk_ids\": [...]} listing only chunks that may "
+        "contain price/fee increase language."
+    )
+    resp = await chat.send_message(UserMessage(text=prompt))
+    data = _parse_json(resp)
+    ids = data.get("chunk_ids", []) if isinstance(data, dict) else []
+    valid = {c["chunk_id"] for c in chunks}
+    return [i for i in ids if i in valid]
+
+
+async def extract_price(chunks: list[dict]) -> dict:
+    chat = _new_chat(EXTRACT_PRICE_SYSTEM)
+    prompt = (
+        "Extract the price_increase finding from these chunks. Quote verbatim "
+        "and echo chunk_ids.\n\n" + _render_chunks(chunks, include_text=True)
+    )
+    resp = await chat.send_message(UserMessage(text=prompt))
+    return _parse_json(resp)
+
+
 EXPLAIN_SYSTEM = (
-    "You write a plain-English explanation of a contract renewal finding using "
+    "You write a plain-English explanation of a contract finding using "
     "ONLY the verbatim source quotes provided. STRICT RULES: do not add any "
     "legal conclusion, right, obligation, date, number, party, or recommendation "
     "that is not directly supported by the quotes. Do not infer or invent. If a "

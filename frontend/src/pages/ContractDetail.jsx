@@ -44,7 +44,7 @@ export default function ContractDetail() {
       .then((r) => setData(r.data))
       .catch(() => setNotFound(true));
     api.get(`/contracts/${contractId}/findings`)
-      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice")); setStatus(r.data.status); })
+      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase")); setStatus(r.data.status); })
       .catch(() => {});
   }, [contractId]);
 
@@ -55,7 +55,7 @@ export default function ContractDetail() {
     setAnalyzeError("");
     try {
       const { data: res } = await api.post(`/contracts/${contractId}/analyze`);
-      setFindings((res.findings || []).filter((f) => f.type === "renewal_notice"));
+      setFindings((res.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase"));
       setWarnings(res.warnings || []);
       setStatus("analysed");
     } catch (err) {
@@ -144,12 +144,12 @@ export default function ContractDetail() {
       {/* Renewal findings (Stage 2) */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <Eyebrow>What matters — renewals</Eyebrow>
+          <Eyebrow>What matters</Eyebrow>
           {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
             <Button onClick={analyze} disabled={analyzing} data-testid="analyze-button"
               className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
               <ScanSearch className="h-4 w-4" strokeWidth={2} />
-              {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find renewal deadlines"}
+              {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find deadlines & increases"}
             </Button>
           )}
         </div>
@@ -163,8 +163,8 @@ export default function ContractDetail() {
               {warnings.length > 0
                 ? warnings[0]
                 : status === "analysed"
-                ? "No renewal, term or notice language was found in this contract."
-                : "Run analysis to find renewal deadlines, notice periods and the clauses that prove them."}
+                ? "No renewal, notice or price-increase language was found in this contract."
+                : "Run analysis to find renewal deadlines, price increases, and the clauses that prove them."}
             </p>
           </div>
         )}

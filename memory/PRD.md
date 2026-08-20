@@ -77,6 +77,29 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - Scanned/image PDFs unreadable by design (OCR out of scope).
 - No refresh-token auto-rotation route yet (hard 401 after access token expiry).
 
+### Stage 7A — price_increase (2026-06)
+- New finding type price_increase, reusing Stage 2 chunking / provenance
+  validation / ranking / needs_review / Confirm-Correct-Dismiss / /accuracy.
+- llm.py: locate_price + extract_price (strict JSON, verbatim sources, server
+  resolves document identity). EXPLAIN generalized to "contract finding".
+- analysis.compute_price (deterministic, server-side only): fixed_automatic may
+  compute next_term_amount + estimated annual increase (money_kind=cost); capped
+  shows max_permitted_amount + "maximum permitted, not guaranteed" (never a
+  guaranteed increase); formula shows the formula until its external index is
+  known (no projection); unspecified/missing amount/bare formula/objection
+  window without a reference date -> needs_review. Objection deadline computed
+  from price_change_date - objection_window (object before it takes effect) or
+  an explicitly stated deadline. run_price_increase_analysis persists findings;
+  analyze endpoint now runs renewal + price and ranks together.
+- Correct is type-aware: PriceCorrectionInput + recompute_price_derived (also
+  updates money_amount/kind). FindingCard + CorrectFindingDialog branch on type;
+  ContractDetail shows both renewal + price findings ("What matters").
+- Checks: tests/check_stage7a.py (happy +3% -> $103k next term + objection
+  deadline; cap 5% -> $105k max not guaranteed; 3 ambiguity cases -> needs_review)
+  PASS. Live e2e via analyze endpoint: validated fixed_automatic finding with
+  sources, computed money, plain-English, rank=urgent. No Rate Shock composite /
+  termination rights / other types built (out of scope).
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

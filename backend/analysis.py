@@ -407,9 +407,15 @@ async def generate_explanation(db, finding: dict, user_id: str) -> dict:
     from models import utc_now_iso
     if finding.get("validation_status") != "validated" or not finding.get("sources"):
         return finding
-    facts = {k: (finding.get("extracted") or {}).get(k) for k in (
-        "next_renewal_date", "effective_action_deadline", "notice_days_min",
-        "notice_days_max", "notice_basis", "renewal_type")}
+    if finding.get("type") == "price_increase":
+        fact_keys = ("increase_type", "increase_percent", "increase_amount",
+                     "increase_formula", "next_term_amount", "max_permitted_amount",
+                     "objection_deadline", "effective_action_deadline")
+    else:
+        fact_keys = ("next_renewal_date", "effective_action_deadline",
+                     "notice_days_min", "notice_days_max", "notice_basis",
+                     "renewal_type")
+    facts = {k: (finding.get("extracted") or {}).get(k) for k in fact_keys}
     try:
         ex = await llm.explain(finding["sources"], facts)
     except Exception:
@@ -560,6 +566,254 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
         confidence=confidence,
         action_required=action_required,
         money_amount=money_amount, money_currency=money_currency,
+        money_kind=money_kind,
+        validation_status=validation_status,
+        validation_notes=validation_notes,
+        state="unconfirmed",
+    )
+    result = await db.findings.insert_one(finding.to_mongo())
+    finding.id = str(result.inserted_id)
+    fd = finding.model_dump()
+    if validation_status == "validated":
+        fd = await generate_explanation(db, fd, user_id)
+    return [fd], []
+
+
+# --------------------------------------------------------------------------
+# Stage 7A — price_increase (reuses chunking / validation / ranking / review)
+# --------------------------------------------------------------------------
+PRICE_HINT = re.compile(
+    r"price\s+increase|fee\s+increase|increase\s+(in|of|the)\s+(price|fees?|rates?|charges?)|"
+    r"annual(ly)?\s+increase|escalat|uplift|indexation|index[- ]linked|"
+    r"\bCPI\b|\bRPI\b|consumer\s+price\s+index|price\s+adjustment|"
+    r"shall\s+increase|may\s+increase|not\s+(to\s+)?exceed|no\s+more\s+than|"
+    r"up\s+to\s+\d+\s*%|\d+\s*%\s+(per\s+annum|annually|increase|each\s+year)",
+    re.I)
+
+PRICE_INCREASE_TYPES = {"fixed_automatic", "capped", "formula", "unspecified"}
+REQUIRED_PRICE_PURPOSES = {"increase"}
+
+PRICE_EDITABLE_FIELDS = [
+    "increase_type", "increase_percent", "increase_amount", "increase_formula",
+    "increase_basis", "price_change_date", "objection_window_value",
+    "objection_window_unit", "objection_basis", "objection_measured_to",
+    "objection_deadline_stated", "objection_recipient", "objection_method",
+]
+
+
+def _pct_frac(p):
+    return float(p) / 100.0
+
+
+def compute_price(extracted: dict, today: date, current_annual_value):
+    """Deterministic price-increase math. Server-side only; never invents an
+    index value or a projection the contract does not support.
+
+    Returns (computed, notes, needs_review, money_amount, money_kind, action_required).
+    """
+    out = {"objection_deadline": None, "effective_action_deadline": None,
+           "days_remaining": None, "next_term_amount": None,
+           "max_permitted_amount": None}
+    notes, needs_review = [], False
+    money_amount, money_kind = None, None
+
+    itype = extracted.get("increase_type")
+    pct = extracted.get("increase_percent")
+    amt = extracted.get("increase_amount")
+    formula = extracted.get("increase_formula")
+
+    if itype not in ("fixed_automatic", "capped", "formula"):
+        needs_review = True
+        notes.append("The increase type is not clearly stated; confirm how the "
+                     "price can change.")
+        itype = "unspecified"
+
+    if itype == "fixed_automatic":
+        # A fixed automatic increase may calculate the next-term amount.
+        if pct is not None and current_annual_value is not None:
+            money_amount = round(float(current_annual_value) * _pct_frac(pct), 2)
+            out["next_term_amount"] = round(float(current_annual_value) + money_amount, 2)
+            money_kind = "cost"
+        elif amt is not None:
+            money_amount = float(amt)
+            money_kind = "cost"
+            if current_annual_value is not None:
+                out["next_term_amount"] = round(float(current_annual_value) + money_amount, 2)
+        else:
+            needs_review = True
+            notes.append("A fixed increase applies but its percentage or amount "
+                         "is not stated.")
+    elif itype == "capped":
+        # Show the MAXIMUM permitted increase only — never a guaranteed one.
+        if pct is not None and current_annual_value is not None:
+            money_amount = round(float(current_annual_value) * _pct_frac(pct), 2)
+            out["max_permitted_amount"] = round(float(current_annual_value) + money_amount, 2)
+            money_kind = "cost"
+            notes.append("This is the maximum permitted increase, not a "
+                         "guaranteed increase.")
+        elif pct is not None:
+            notes.append("This is the maximum permitted increase, not a "
+                         "guaranteed increase.")
+        else:
+            needs_review = True
+            notes.append("A cap on increases applies but the maximum is not stated.")
+    elif itype == "formula":
+        # Formula-based: show the formula until its external index is known.
+        if formula:
+            notes.append("The increase follows a formula; the amount is unknown "
+                         "until the external index or value is published.")
+        else:
+            needs_review = True
+            notes.append("A formula-based increase applies but the formula is "
+                         "not stated.")
+
+    # objection window / deadline
+    ow_val = extracted.get("objection_window_value")
+    ow_unit = extracted.get("objection_window_unit")
+    ref = extracted.get("price_change_date")
+    stated = extracted.get("objection_deadline_stated")
+    deadline_date = None
+    if stated:
+        try:
+            deadline_date = datetime.strptime(stated, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            deadline_date = None
+    if deadline_date is None and ow_val and ow_unit and ref:
+        try:
+            ref_date = datetime.strptime(ref, "%Y-%m-%d").date()
+            rel = normalize_unit(ow_val, ow_unit)
+            if rel is not None:
+                deadline_date = ref_date - rel  # object before the increase takes effect
+        except (ValueError, TypeError):
+            deadline_date = None
+    if (ow_val or stated) and deadline_date is None:
+        needs_review = True
+        notes.append("An objection window is stated but there is no reference "
+                     "date to calculate the deadline; confirm the dates.")
+
+    action_required = False
+    if deadline_date is not None:
+        out["objection_deadline"] = deadline_date.isoformat()
+        out["effective_action_deadline"] = deadline_date.isoformat()
+        out["days_remaining"] = (deadline_date - today).days
+        action_required = True
+
+    return out, notes, needs_review, money_amount, money_kind, action_required
+
+
+def recompute_price_derived(edits: dict, current_annual_value, today: date = None) -> dict:
+    """Recompute price-increase derived fields from edited values using the same
+    deterministic logic (no LLM). Used by Correct for price_increase findings."""
+    today = today or date.today()
+    computed, notes, review, money_amount, money_kind, action_required = compute_price(
+        edits, today, current_annual_value)
+    validation_status = "needs_review" if review else "validated"
+    fields = {k: edits.get(k) for k in PRICE_EDITABLE_FIELDS}
+    fields.update(computed)
+    if validation_status == "needs_review":
+        for k in ("objection_deadline", "effective_action_deadline", "days_remaining"):
+            fields[k] = None
+    return {
+        "extracted": fields,
+        "validation_status": validation_status,
+        "validation_notes": notes,
+        "action_required": action_required if validation_status == "validated" else False,
+        "money_amount": money_amount,
+        "money_kind": money_kind,
+    }
+
+
+async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
+    """Orchestrate the price_increase pipeline and persist finding(s)."""
+    from models import Finding, FindingSource
+
+    contract_id = str(contract["_id"])
+    documents = [d async for d in db.documents.find(
+        {"contract_id": contract_id, "user_id": user_id})]
+    docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
+    chunks, chunk_map = build_chunks(list(docs_by_id.values()))
+
+    # Idempotent re-analysis.
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": "price_increase"})
+    if not chunks:
+        return [], []
+
+    hint_ids = [c["chunk_id"] for c in chunks if PRICE_HINT.search(c["text"])]
+    candidate_ids = await llm.locate_price(chunks)
+    candidate_ids = list(dict.fromkeys((candidate_ids or []) + hint_ids))
+    if not candidate_ids:
+        return [], []
+    candidates = [c for c in chunks if c["chunk_id"] in candidate_ids]
+
+    extracted = await llm.extract_price(candidates)
+    if (not isinstance(extracted, dict) or not extracted.get("found")) and hint_ids:
+        focus = [c for c in chunks if c["chunk_id"] in set(hint_ids)]
+        if focus:
+            extracted = await llm.extract_price(focus)
+    if not isinstance(extracted, dict) or not extracted.get("found"):
+        return [], []
+
+    validated, valid_purposes = validate_sources(
+        extracted.get("sources", []), chunk_map, docs_by_id)
+    if not validated:
+        return [], ["Candidate price-increase language was detected, but no "
+                    "source quote could be validated."]
+
+    validation_notes = []
+    needs_review = False
+    missing_required = REQUIRED_PRICE_PURPOSES - valid_purposes
+    if missing_required:
+        needs_review = True
+        validation_notes.append(
+            "Missing validated source for: " + ", ".join(sorted(missing_required)))
+
+    doc_ids_in_sources = {s["document_id"] for s in validated}
+    confidence = extracted.get("confidence") or "low"
+    if len(doc_ids_in_sources) > 1 and confidence == "high":
+        confidence = "medium"
+
+    today = date.today()
+    current_annual_value = contract.get("annual_value")
+    computed, price_notes, price_review, money_amount, money_kind, action_required = compute_price(
+        extracted, today, current_annual_value)
+    if price_review:
+        needs_review = True
+    validation_notes.extend(price_notes)
+
+    validation_status = "needs_review" if needs_review else "validated"
+    if needs_review and confidence == "high":
+        confidence = "medium"
+
+    extracted_fields = {
+        "increase_type": extracted.get("increase_type"),
+        "increase_percent": extracted.get("increase_percent"),
+        "increase_amount": extracted.get("increase_amount"),
+        "increase_formula": extracted.get("increase_formula"),
+        "increase_basis": extracted.get("increase_basis"),
+        "price_change_date": extracted.get("price_change_date"),
+        "objection_window_value": extracted.get("objection_window_value"),
+        "objection_window_unit": extracted.get("objection_window_unit"),
+        "objection_basis": extracted.get("objection_basis"),
+        "objection_measured_to": extracted.get("objection_measured_to"),
+        "objection_deadline_stated": extracted.get("objection_deadline_stated"),
+        "objection_recipient": extracted.get("objection_recipient"),
+        "objection_method": extracted.get("objection_method"),
+        **computed,
+    }
+    if validation_status == "needs_review":
+        for k in ("objection_deadline", "effective_action_deadline", "days_remaining"):
+            extracted_fields[k] = None
+        action_required = False
+
+    finding = Finding(
+        contract_id=contract_id, user_id=user_id, type="price_increase",
+        extracted=extracted_fields,
+        sources=[FindingSource(**s) for s in validated],
+        confidence=confidence,
+        action_required=action_required,
+        money_amount=money_amount,
+        money_currency=(contract.get("currency") or "USD") if money_amount is not None else None,
         money_kind=money_kind,
         validation_status=validation_status,
         validation_notes=validation_notes,

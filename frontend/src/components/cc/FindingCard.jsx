@@ -25,6 +25,16 @@ const PURPOSE_LABEL = {
   business_day_definition: "Business day definition",
   deemed_receipt: "Deemed receipt",
   value: "Contract value",
+  increase: "Price increase",
+  objection: "Objection window",
+  increase_basis: "What it applies to",
+};
+
+const INCREASE_TYPE_LABEL = {
+  fixed_automatic: "Fixed automatic",
+  capped: "Capped (maximum)",
+  formula: "Formula / index-linked",
+  unspecified: "Unspecified",
 };
 
 const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -43,6 +53,34 @@ function longDate(iso) {
 const money = (v, cur) =>
   v == null ? null : new Intl.NumberFormat("en-US",
     { style: "currency", currency: cur || "USD", maximumFractionDigits: 0 }).format(v);
+
+// price_increase presentation helpers
+function rateText(e) {
+  if (e.increase_type === "formula") return e.increase_formula || "Formula (not stated)";
+  if (e.increase_percent != null)
+    return `${e.increase_percent}%${e.increase_type === "capped" ? " (max)" : ""}`;
+  if (e.increase_amount != null) return money(e.increase_amount) || "Not stated";
+  return "Not stated";
+}
+function objectionWindowText(e) {
+  if (e.objection_window_value == null) return null;
+  const unit = e.objection_window_unit || "days";
+  const b = e.objection_basis === "business" ? " business" : "";
+  return `${e.objection_window_value}${b} ${unit}`;
+}
+function priceHeadline(e) {
+  if (e.increase_type === "formula") return (e.increase_formula || "FORMULA").toUpperCase();
+  if (e.increase_type === "capped") return e.increase_percent != null ? `UP TO ${e.increase_percent}%` : "CAPPED";
+  if (e.increase_percent != null) return `+${e.increase_percent}%`;
+  if (e.increase_amount != null) return `+${money(e.increase_amount)}`;
+  return "INCREASE";
+}
+function priceSubhead(e) {
+  if (e.increase_type === "capped") return "Maximum permitted increase — not guaranteed.";
+  if (e.increase_type === "formula") return "Amount depends on the external index at the time.";
+  if (e.next_term_amount != null) return "Applies automatically at the next term.";
+  return "Stated price increase.";
+}
 
 // Palette selection per PART 5: stamp only ≤14d AND action required; pending
 // for 15–60d / review; neutral otherwise.
@@ -66,6 +104,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const e = finding.extracted || {};
+  const isPrice = finding.type === "price_increase";
   const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
   const badge = STATE_BADGE[finding.state];
@@ -100,7 +139,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
       <div className="p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="cc-eyebrow">Automatic renewal</p>
+            <p className="cc-eyebrow">{isPrice ? "Price increase" : "Automatic renewal"}</p>
             {finding.rank_category && (
               <span data-testid="finding-rank-category"
                 className="inline-block cc-eyebrow mt-1 text-ink-soft">
@@ -115,6 +154,15 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 <p className="cc-days-remaining mt-2 max-w-md">
                   {finding.validation_notes?.[0] ||
                     "This finding needs review before a deadline can be shown."}
+                </p>
+              </>
+            ) : isPrice && !heroIso ? (
+              <>
+                <p className={`cc-hero-date mt-3 ${TONE_TEXT[t]}`} data-testid="finding-price-headline">
+                  {priceHeadline(e)}
+                </p>
+                <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-price-subhead">
+                  {priceSubhead(e)}
                 </p>
               </>
             ) : (
@@ -146,23 +194,58 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         <div className={`mt-5 h-[3px] w-11 rounded ${TONE_RULE[t]}`} />
 
         {/* Key facts */}
-        <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-          <Fact label="Next renewal"
-            value={longDate(e.next_renewal_date) || "Not calculated"} testid="finding-next-renewal" />
-          <Fact label="Notice period" value={noticeText()} testid="finding-notice-period" />
-          {!needsReview && e.earliest_action_date && (
-            <Fact label="Notice window"
-              value={`${longDate(e.earliest_action_date)} – ${longDate(e.effective_action_deadline)}`}
-              testid="finding-notice-window" />
-          )}
-          <Fact label="Notice method" value={e.notice_method || "Not stated"} testid="finding-notice-method" />
-          <Fact label="Notice recipient" value={e.notice_recipient || "Not stated"} testid="finding-notice-recipient" />
-          {finding.money_amount != null && (
-            <Fact label="Contract value"
-              value={<span className="cc-money">{money(finding.money_amount, finding.money_currency)}</span>}
-              testid="finding-money" />
-          )}
-        </dl>
+        {isPrice ? (
+          <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <Fact label="Increase type"
+              value={INCREASE_TYPE_LABEL[e.increase_type] || "Not stated"} testid="finding-increase-type" />
+            <Fact label="Rate" value={rateText(e)} testid="finding-increase-rate" />
+            {e.price_change_date && (
+              <Fact label="Effective from" value={longDate(e.price_change_date)} testid="finding-price-change-date" />
+            )}
+            {e.next_term_amount != null && (
+              <Fact label="Next-term value"
+                value={<span className="cc-money">{money(e.next_term_amount, finding.money_currency)}</span>}
+                testid="finding-next-term-amount" />
+            )}
+            {e.max_permitted_amount != null && (
+              <Fact label="Maximum permitted"
+                value={<span className="cc-money">{money(e.max_permitted_amount, finding.money_currency)}</span>}
+                testid="finding-max-permitted" />
+            )}
+            {objectionWindowText(e) && (
+              <Fact label="Objection window" value={objectionWindowText(e)} testid="finding-objection-window" />
+            )}
+            {!needsReview && e.objection_deadline && (
+              <Fact label="Objection deadline" value={longDate(e.objection_deadline)} testid="finding-objection-deadline" />
+            )}
+            {e.increase_basis && (
+              <Fact label="Applies to" value={e.increase_basis} testid="finding-increase-basis" />
+            )}
+            {finding.money_amount != null && (
+              <Fact label={e.increase_type === "capped" ? "Maximum annual increase" : "Estimated annual increase"}
+                value={<span className="cc-money">{money(finding.money_amount, finding.money_currency)}</span>}
+                testid="finding-money" />
+            )}
+          </dl>
+        ) : (
+          <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <Fact label="Next renewal"
+              value={longDate(e.next_renewal_date) || "Not calculated"} testid="finding-next-renewal" />
+            <Fact label="Notice period" value={noticeText()} testid="finding-notice-period" />
+            {!needsReview && e.earliest_action_date && (
+              <Fact label="Notice window"
+                value={`${longDate(e.earliest_action_date)} – ${longDate(e.effective_action_deadline)}`}
+                testid="finding-notice-window" />
+            )}
+            <Fact label="Notice method" value={e.notice_method || "Not stated"} testid="finding-notice-method" />
+            <Fact label="Notice recipient" value={e.notice_recipient || "Not stated"} testid="finding-notice-recipient" />
+            {finding.money_amount != null && (
+              <Fact label="Contract value"
+                value={<span className="cc-money">{money(finding.money_amount, finding.money_currency)}</span>}
+                testid="finding-money" />
+            )}
+          </dl>
+        )}
 
         {finding.validation_notes?.length > 0 && (
           <ul className="mt-5 space-y-1">
