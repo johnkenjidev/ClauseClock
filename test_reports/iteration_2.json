@@ -1,0 +1,24 @@
+{
+  "summary": "ClauseClock Stage 1 GATE verification PASSED. All 5 deliberately-difficult text-based fixtures extracted correctly with usable location markers, and the image-only scanned PDF was flagged with the EXACT scanned message. Full hard-delete of every created contract confirmed; GridFS fs.files, contracts and documents collections all returned to 0 after the run.\n\nPer-fixture results:\n- GATE 1 gate_docx.docx: PASS — extraction_method=python-docx, raw_text contains '[§' (heading), '¶' (paragraph) and '[Table' markers; '$24,000' fee and 'Appendix A' content present.\n- GATE 2 gate_twocol.pdf: PASS — extraction_method=pdfplumber, page_count=3, 'Page 1/2/3' markers present, 'automatically renew', 'sixty (60)' and 'certified mail' all readable (column interleaving accepted per Stage-1 spec).\n- GATE 3 gate_40pages.pdf: PASS — page_count>=40 with >=40 distinct 'Page N' markers, extraction_method=pdfplumber.\n- GATE 4 gate_appendix.pdf: PASS — 'APPENDIX B', '$48,000' and 'capped at eight percent (8%)' all appear after the 'Page 2' marker.\n- GATE 5 gate_tables.pdf: PASS — '[Table' marker present and every required cell (Bronze, $24,000, Gold, $48,000, Cap %) readable.\n- SCANNED GUARDRAIL gate_scanned.pdf: PASS — extraction_method=failed_no_text, extraction_warnings contains EXACT message. GET /api/contracts/{id} surfaces the same and raw_text is effectively empty (only auto-inserted 'Page N' delimiters remain, no content).\n- Cleanup: PASS — every created contract deleted (200 + deleted:true), subsequent GET returns 404, contracts list empty, GridFS fs.files count restored (0 after run).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_gate.py",
+    "/app/test_reports/pytest/gate_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ingestion.py: _extract_pdf appends the '========== Page N ==========' delimiter for every page regardless of whether any text was extracted. For a scanned/image-only PDF this means document.raw_text ends up as pure page markers with no content — technically not empty. Not a functional bug (extraction_method=failed_no_text and the exact SCANNED_MESSAGE are the contract used by the frontend), but consider suppressing the page-marker skeleton when is_scanned() triggers so raw_text is truly empty and downstream text-length heuristics can't be misled.",
+    "pytest.ini enables xdist loadscope by default. Module-scoped fixtures in xdist run once per worker, which broke a strict GridFS baseline assertion (baseline captured on one worker, cleanup ran on another). Non-blocking — test-side fix applied by running the gate module without xdist and by belt-and-braces purging any dangling TEST_gate contracts before the baseline assertion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_clauseclock_gate.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "skipped per request"},
+  "test_credentials": "test@clauseclock.app / Test1234! (seeded)",
+  "seed_data_creation": "None persisted — every TEST_gate_* contract created during the run is hard-deleted at end of module; verified via list API + Mongo counts (fs.files=0, contracts=0, documents=0).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run the gate suite with:  python -m pytest /app/backend/tests/test_clauseclock_gate.py -v -o addopts=''  (bypass the project pytest.ini xdist config, since the module has a module-scoped GridFS baseline fixture and a terminal cleanup class that must all run in the same worker). Fixtures live at /app/backend/tests/gate_*. Seeded test user 'test@clauseclock.app' / 'Test1234!'. Storage is GridFS (fs.files/fs.chunks); hard-delete route removes originals. Scanned detection uses <100 chars/page and returns the EXACT SCANNED_MESSAGE constant from ingestion.py.",
+  "rca of the issue": "N/A — gate verification only. No functional bugs found. All 5 text-based fixtures produced readable extracted text with usable location markers and the scanned guardrail returns the exact required message."
+}
