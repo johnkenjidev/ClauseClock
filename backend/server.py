@@ -306,11 +306,11 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
         raise HTTPException(status_code=400,
                             detail="No readable documents to analyse.")
 
-    findings = await analysis.run_renewal_analysis(db, contract, user_id)
+    findings, warnings = await analysis.run_renewal_analysis(db, contract, user_id)
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
-    return {"findings": findings}
+    return {"findings": findings, "warnings": warnings}
 
 
 @api_router.get("/contracts/{contract_id}/findings")

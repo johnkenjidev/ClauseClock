@@ -1,0 +1,30 @@
+{
+  "summary": "Stage 2 DEFECT FIXES verified. New defect suite /app/backend/tests/test_clauseclock_stage2_defects.py 10/10 PASS (~21s). Stage 1 gate + Stage 2 regression 16/16 PASS (~51s). Combined backend: 26/26 PASS. Frontend E2E PASS: multi-purpose contract renders hero date + both clause-renewal_term and clause-notice_period groups in the drawer; empty-state branch (which surfaces warnings[0] when present) renders correctly. Zero-source warning contract verified deterministically by monkeypatching llm.locate/llm.extract inside analysis.run_renewal_analysis and asserting (a) empty findings, (b) exact warning string 'Candidate renewal language was detected, but no source quote could be validated.' returned, (c) NO finding persisted in db.findings, (d) HTTP GET /findings empty. Marker-tolerant matcher unit-verified: analysis.find_quote_offset_marker_tolerant returns int across '========== Page 2 ==========', '[Table..]', '[§..]' markers while analysis.find_quote_offset returns None; wrong-word quote still returns None (no fuzzy/edit-distance); analysis._display_quote strips injected markers. Verbatim invariant enforced across every defect-suite contract's findings after marker-strip. Cross-user isolation 404 preserved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_stage2_defects.py",
+    "/app/backend/tests/test_clauseclock_stage2.py",
+    "/app/backend/tests/test_clauseclock_gate.py",
+    "/app/test_reports/pytest/stage2_defects_results.xml",
+    "/app/test_reports/pytest/regression_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "analysis.run_renewal_analysis deletes prior renewal_notice findings BEFORE the zero-source guard runs. That's the desired idempotent-reanalyze behaviour (previously validated findings on this contract are wiped even if the current re-run yields only a warning). If product prefers 'retain last known good finding on transient LLM failure' that's a spec conversation — flagging so it isn't a surprise.",
+    "analysis._MARKER_RE only recognises the exact ClauseClock-injected marker vocabulary (page banners, [Table..], [§..], [loc:..], '¶N |'). Any new marker style added by ingestion.py in the future must be reflected here or verbatim validation will silently start dropping legitimate quotes. Consider colocating the marker vocabulary in one module and importing on both sides.",
+    "server.analyze_contract's response schema is now {'findings','warnings'}. There is no OpenAPI/pydantic response_model — a stale FE reading r.data.findings without checking r.data.warnings would silently miss the warning. FE is correct today; adding a Pydantic response_model would make the contract enforced.",
+    "test_clauseclock_stage2.py::TestNoRenewalLanguage still accepts a needs_review finding for an NDA contract if the model over-triggers. With the D2 zero-source guard now in place, a stricter assertion (either empty findings OR needs_review with >=1 validated source and no fabricated renewal_term) would tighten the regression surface.",
+    "backend/pytest.ini forces -n 2 --dist loadscope. The new defect suite uses class-scoped state (pytest.happy_cid is not used here, but `created` module-scoped list is shared across classes). loadscope keeps them on one worker; a future contributor splitting classes across modules must be aware."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_clauseclock_stage2_defects.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (26/26: gate 7/7 + stage2 9/9 + stage2_defects 10/10)", "frontend": "100% (multi-purpose finding + empty-state branches)"},
+  "test_credentials": "test@clauseclock.app / Test1234! (seeded)",
+  "seed_data_creation": "All TEST_defect_* contracts hard-deleted by module-scoped `created` teardown. The E2E playwright run cleans up TEST_e2e_multipurpose and TEST_e2e_nda via API DELETE. UserB defect-userb-<ts>@clauseclock.app is created for isolation only (empty account remains, inert).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run defect fixes with: python -m pytest /app/backend/tests/test_clauseclock_stage2_defects.py -v -o addopts='' --tb=short (10 tests, ~21s including one real Claude call for multi-purpose and one for gating). The Zero-source suppression test is IN-PROCESS: it imports analysis + llm from /app/backend and monkeypatches analysis.llm.locate/analysis.llm.extract to force zero validated sources without needing to fool the real LLM — deterministic and fast. Marker-tolerant unit tests need no network. Regressions: pytest tests/test_clauseclock_gate.py tests/test_clauseclock_stage2.py -o addopts='' (~51s). Frontend E2E credentials: seeded user; PDFs fabricated inline with reportlab.",
+  "rca of the issue": "N/A — both defect fixes verified end-to-end. Defect 1 (multi-purpose sources): the strengthened EXTRACT_SYSTEM prompt in llm.py now produces same chunk_id+quote entries for renewal_term AND notice_period from a single clause; server-side validate_sources accepts duplicates because it iterates sources[] independently (line 156-178). Defect 2 (zero-source suppression): analysis.run_renewal_analysis lines 293-295 return ([], [warning]) before any db.findings.insert_one when validate_sources produced no output, so nothing is persisted or displayed and the caller receives the exact warning string. The marker-tolerant matcher (find_quote_offset_marker_tolerant, _MARKER_RE, _clean_with_map) removes ONLY ClauseClock's own injected markers on both sides while preserving offset-mapping into the ORIGINAL raw_text — verified via unit tests. Wrong-word quotes still return None, confirming no fuzzy/semantic fallback."
+}

@@ -37,6 +37,7 @@ export default function ContractDetail() {
   const [status, setStatus] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [warnings, setWarnings] = useState([]);
 
   const load = useCallback(() => {
     api.get(`/contracts/${contractId}`)
@@ -55,6 +56,7 @@ export default function ContractDetail() {
     try {
       const { data: res } = await api.post(`/contracts/${contractId}/analyze`);
       setFindings((res.findings || []).filter((f) => f.type === "renewal_notice"));
+      setWarnings(res.warnings || []);
       setStatus("analysed");
     } catch (err) {
       setAnalyzeError(err.response?.data?.detail || "Analysis failed. Try again.");
@@ -158,7 +160,9 @@ export default function ContractDetail() {
         {findings.length === 0 && !analyzing && (
           <div className="rounded-lg border border-rule bg-card px-6 py-8">
             <p className="cc-plain-english text-ink-soft">
-              {status === "analysed"
+              {warnings.length > 0
+                ? warnings[0]
+                : status === "analysed"
                 ? "No renewal, term or notice language was found in this contract."
                 : "Run analysis to find renewal deadlines, notice periods and the clauses that prove them."}
             </p>

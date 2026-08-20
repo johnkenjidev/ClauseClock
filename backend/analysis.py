@@ -95,6 +95,60 @@ def find_quote_offset(raw_text: str, quote: str):
     return m.start() if m else None
 
 
+# ClauseClock's own inserted location markers. These are NOT contract text; a
+# verbatim clause can be split by one (e.g. a page break falling mid-sentence).
+# We remove ONLY these — consistently on both the document and the quote — for
+# validation. This is not fuzzy/semantic matching: the words must still match
+# exactly and in order.
+_MARKER_RE = re.compile(
+    r"=+\s*Page\s+\d+\s*=+"        # PDF page markers
+    r"|\[Table[^\]]*\]"            # table markers
+    r"|\[§[^\]]*\]"                # DOCX section/heading markers
+    r"|\[loc:[^\]]*\]"             # DOCX location annotations
+    r"|¶\d+\s*\|"                  # DOCX paragraph prefixes
+)
+
+
+def _strip_markers(text: str) -> str:
+    return _MARKER_RE.sub(" ", text or "")
+
+
+def _clean_with_map(raw: str):
+    """Return (cleaned_raw, offset_map) where offset_map[i] is the original
+    index in `raw` of cleaned_raw[i]. Injected markers become a single space."""
+    cleaned, omap = [], []
+    i, n = 0, len(raw)
+    for m in _MARKER_RE.finditer(raw):
+        for j in range(i, m.start()):
+            cleaned.append(raw[j]); omap.append(j)
+        cleaned.append(" "); omap.append(m.start())
+        i = m.end()
+    for j in range(i, n):
+        cleaned.append(raw[j]); omap.append(j)
+    return "".join(cleaned), omap
+
+
+def find_quote_offset_marker_tolerant(raw_text: str, quote: str):
+    """Like find_quote_offset but ignores ClauseClock's injected markers.
+    Returns the offset in the ORIGINAL raw_text, or None."""
+    q = _strip_markers(quote).strip()
+    tokens = q.split()
+    if not tokens:
+        return None
+    cleaned, omap = _clean_with_map(raw_text)
+    pattern = r"\s+".join(re.escape(tok) for tok in tokens)
+    m = re.search(pattern, cleaned)
+    if not m:
+        return None
+    return omap[m.start()]
+
+
+def _display_quote(quote: str) -> str:
+    """Quote for storage/display with injected markers removed (still verbatim
+    contract wording, just without our page/section artifacts)."""
+    return re.sub(r"\s+", " ", _strip_markers(quote)).strip()[:400]
+
+
 def validate_sources(sources: list[dict], chunk_map: dict,
                      docs_by_id: dict) -> tuple[list[dict], set]:
     """Resolve + verify each source. Returns (validated_sources, valid_purposes)."""
@@ -111,12 +165,13 @@ def validate_sources(sources: list[dict], chunk_map: dict,
         if not doc:
             continue
         raw = doc.get("raw_text") or ""
-        offset = find_quote_offset(raw, quote)
+        offset = find_quote_offset_marker_tolerant(raw, quote)
         if offset is None:
             continue                              # failed validation -> dropped
         validated.append({
             "purpose": purpose, "chunk_id": cid, "document_id": doc_id,
-            "quote": quote, "location": _location_at(raw, offset, doc.get("file_type", "pdf")),
+            "quote": _display_quote(quote),
+            "location": _location_at(raw, offset, doc.get("file_type", "pdf")),
             "char_offset": offset,
         })
         valid_purposes.add(purpose)
@@ -202,8 +257,9 @@ def compute_dates(extracted: dict, today: date) -> dict:
     return out, notes, needs_review
 
 
-async def run_renewal_analysis(db, contract: dict, user_id: str) -> list[dict]:
-    """Orchestrate the pipeline and persist renewal_notice finding(s)."""
+async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
+    """Orchestrate the pipeline and persist renewal_notice finding(s).
+    Returns (findings, warnings)."""
     from models import Finding, FindingSource
 
     contract_id = str(contract["_id"])
@@ -218,19 +274,25 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> list[dict]:
         {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice"})
 
     if not chunks:
-        return []
+        return [], []
 
     candidate_ids = await llm.locate(chunks)
     if not candidate_ids:
-        return []
+        return [], []
     candidates = [c for c in chunks if c["chunk_id"] in candidate_ids]
 
     extracted = await llm.extract(candidates)
     if not isinstance(extracted, dict) or not extracted.get("found"):
-        return []
+        return [], []
 
     validated, valid_purposes = validate_sources(
         extracted.get("sources", []), chunk_map, docs_by_id)
+
+    # Invariant: sources[] is never empty. A finding with no validated sources
+    # is not a finding — do not persist or display it.
+    if not validated:
+        return [], ["Candidate renewal language was detected, but no source "
+                    "quote could be validated."]
 
     validation_notes = []
     needs_review = False
@@ -325,4 +387,4 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> list[dict]:
     )
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)
-    return [finding.model_dump()]
+    return [finding.model_dump()], []
