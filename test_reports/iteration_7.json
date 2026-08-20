@@ -1,0 +1,42 @@
+{
+  "summary": "PASS — Verified ClauseClock Stage 2 renewal_notice UI behavior. Punakaiki (needs_review, no computed dates) finding card correctly displays the full min–max notice window '365–548 days' in the Notice period field (data-testid=finding-notice-period). The date-based Notice window row (finding-notice-window) is correctly absent for the needs_review case, with no 'Invalid Date' text or crashes. Regression: DealMaker (validated) still shows hero date 'FEB 1' with notice-period '60 days'. Clause drawer toggle is present on both cards. No code changes were required or made.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verifications": {
+    "punakaiki": {
+      "finding_testid": "finding-6a873c1ac0a478de849bdf9a",
+      "notice_period_text": "365–548 days",
+      "notice_window_present": false,
+      "needs_review_present": true,
+      "hero_date_present": false,
+      "clause_drawer_toggle_present": true,
+      "invalid_date_present": false,
+      "result": "PASS"
+    },
+    "dealmaker": {
+      "finding_testid": "finding-6a873c7ac0a478de849bdfa0",
+      "hero_date_text": "FEB 1",
+      "notice_period_text": "60 days",
+      "notice_window_present": false,
+      "invalid_date_present": false,
+      "result": "PASS (regression sanity)"
+    }
+  },
+  "test_report_links": ["/app/test_reports/puna.png", "/app/test_reports/dealmaker.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FindingCard.jsx noticeText() correctly builds the min–max window when notice_days_max is present; the date-based Notice window Fact is properly gated by (!needsReview && e.earliest_action_date), preventing 'Invalid Date' on needs_review findings.",
+    "Minor: on the DealMaker page, notice-window Fact was absent even though this is a validated finding — check whether earliest_action_date is populated server-side; if intended to render for validated findings with both dates, verify the DealMaker record has earliest_action_date set. (Not a regression; card still shows hero date and 60 days notice.)"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "test@clauseclock.app / Test1234! (seeded, works via /api/auth/login → 200)",
+  "seed_data_creation": "None — used existing Punakaiki and DealMaker contracts already analyzed in prior runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login flow: cookies are httpOnly + Secure; use expect_navigation() around submit-click. After login, navigate directly to /app/contracts to see the list. Punakaiki finding is validation_status=needs_review (no computed dates); notice_days_min=365, notice_days_max=548, basis=calendar → shows '365–548 days'. DealMaker finding is validated with computed deadline 2028-02-01 → shows FEB 1 hero + 60 days notice. Note: DealMaker did NOT render a finding-notice-window row during this run; if that row is expected for validated findings, verify earliest_action_date is populated in the finding document."
+}
