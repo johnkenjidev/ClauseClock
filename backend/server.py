@@ -559,6 +559,78 @@ async def draft_notice(finding_id: str, user_id: str = Depends(current_user_id))
                           "This is not legal advice."}
 
 
+class ActionInput(BaseModel):
+    action_type: str
+    sent_date: str
+    delivery_method: str
+    note: Optional[str] = None
+
+    @field_validator("action_type")
+    @classmethod
+    def _valid_type(cls, v):
+        if v not in ("notice_sent", "objection_sent", "claim_submitted", "dispute_raised"):
+            raise ValueError("invalid action_type")
+        return v
+
+    @field_validator("sent_date")
+    @classmethod
+    def _valid_date(cls, v):
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            raise ValueError("sent_date must be YYYY-MM-DD")
+        return v
+
+
+_METHOD_KEYWORDS = {"certified", "registered", "email", "mail", "hand",
+                    "courier", "written", "post", "fax", "overnight", "delivery"}
+
+
+def _method_matches(contract_method, delivery_method) -> Optional[bool]:
+    if not contract_method:
+        return None
+    a = set((contract_method or "").lower().split())
+    b = set((delivery_method or "").lower().split())
+    key_a = {k for k in _METHOD_KEYWORDS if k in " ".join(a)}
+    key_b = {k for k in _METHOD_KEYWORDS if k in " ".join(b)}
+    if not key_a:
+        return None
+    return bool(key_a & key_b)
+
+
+@api_router.post("/findings/{finding_id}/actions")
+async def log_action(finding_id: str, body: ActionInput,
+                     user_id: str = Depends(current_user_id)):
+    from models import Action, Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    f = Finding.from_mongo(doc)
+    if f.state not in ("confirmed", "corrected"):
+        raise HTTPException(status_code=400, detail="Confirm the finding before logging an action.")
+    contract_method = (f.extracted or {}).get("notice_method")
+    matches = _method_matches(contract_method, body.delivery_method)
+    action = Action(
+        finding_id=finding_id, contract_id=f.contract_id, user_id=user_id,
+        action_type=body.action_type, sent_date=body.sent_date,
+        delivery_method=body.delivery_method, method_matches_contract=matches,
+        note=body.note,
+    )
+    result = await db.actions.insert_one(action.to_mongo())
+    action.id = str(result.inserted_id)
+    return {"action": action.model_dump(), "contract_method": contract_method,
+            "method_warning": matches is False}
+
+
+@api_router.get("/findings/{finding_id}/actions")
+async def list_actions(finding_id: str, user_id: str = Depends(current_user_id)):
+    from models import Action, Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    contract_method = (Finding.from_mongo(doc).extracted or {}).get("notice_method")
+    actions = []
+    async for a in db.actions.find({"finding_id": finding_id, "user_id": user_id}).sort("logged_at", -1):
+        actions.append(Action.from_mongo(a).model_dump())
+    return {"actions": actions, "contract_method": contract_method}
+
+
 @api_router.get("/accuracy")
 async def accuracy(user_id: str = Depends(current_user_id)):
     """Operator instrumentation over stored findings. Not a learning system."""

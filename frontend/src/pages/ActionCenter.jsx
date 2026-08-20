@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { FileText, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -34,6 +35,66 @@ function Provenance({ sources }) {
           <p className="cc-clause mt-1 text-ink">&ldquo;{s.quote}&rdquo;</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+function LogActionForm({ findingId, contractMethod }) {
+  const [form, setForm] = useState({ action_type: "notice_sent", sent_date: "", delivery_method: "", note: "" });
+  const [actions, setActions] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const load = () => api.get(`/findings/${findingId}/actions`).then((r) => setActions(r.data.actions)).catch(() => {});
+  useEffect(() => { load(); }, [findingId]);
+
+  const save = async () => {
+    setBusy(true); setErr("");
+    try {
+      await api.post(`/findings/${findingId}/actions`, form);
+      setForm({ action_type: "notice_sent", sent_date: "", delivery_method: "", note: "" });
+      load();
+    } catch (e) { setErr(e.response?.data?.detail || "Could not save"); if (Array.isArray(e.response?.data?.detail)) setErr("Check the fields"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="pt-4 border-t border-rule" data-testid="log-action">
+      <Eyebrow>Log an action</Eyebrow>
+      <div className="grid grid-cols-2 gap-3 mt-3">
+        <select data-testid="action-type" value={form.action_type} onChange={(e) => set("action_type", e.target.value)}
+          className="bg-card border border-rule rounded-md h-9 px-2 cc-days-remaining">
+          <option value="notice_sent">Notice sent</option>
+          <option value="objection_sent">Objection sent</option>
+          <option value="claim_submitted">Claim submitted</option>
+          <option value="dispute_raised">Dispute raised</option>
+        </select>
+        <Input type="date" data-testid="action-sent-date" value={form.sent_date} onChange={(e) => set("sent_date", e.target.value)} className="bg-card border-rule h-9" />
+        <Input data-testid="action-delivery-method" placeholder="Delivery method (e.g. certified mail)" value={form.delivery_method} onChange={(e) => set("delivery_method", e.target.value)} className="bg-card border-rule h-9 col-span-2" />
+        <Input data-testid="action-note" placeholder="Optional note" value={form.note} onChange={(e) => set("note", e.target.value)} className="bg-card border-rule h-9 col-span-2" />
+      </div>
+      {err && <p className="cc-days-remaining text-stamp mt-2">{err}</p>}
+      <Button onClick={save} disabled={busy || !form.sent_date || !form.delivery_method} data-testid="action-save"
+        className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 mt-3">
+        {busy ? "Saving…" : "Log action"}
+      </Button>
+
+      {actions.length > 0 && (
+        <ul className="mt-4 space-y-2" data-testid="logged-actions">
+          {actions.map((a) => (
+            <li key={a.id} className="rounded-md border border-rule bg-card px-4 py-3">
+              <p className="cc-finding-title text-[15px]">{a.action_type.replace(/_/g, " ")} · {a.sent_date}</p>
+              <p className="cc-days-remaining mt-0.5">via {a.delivery_method}{a.note ? ` · ${a.note}` : ""}</p>
+              {a.method_matches_contract === false && (
+                <p className="cc-days-remaining text-stamp mt-1" data-testid="method-warning">
+                  ⚠ The delivery method you logged differs from the contract-required method
+                  {contractMethod ? ` (“${contractMethod}”)` : ""}. Double-check your contract before relying on this notice.
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -103,6 +164,8 @@ function ChecklistDialog({ item, open, onOpenChange }) {
                 </div>
               )}
             </div>
+
+            <LogActionForm findingId={item.id} contractMethod={checklist.method.value} />
           </div>
         )}
       </DialogContent>

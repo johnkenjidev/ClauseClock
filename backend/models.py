@@ -226,6 +226,7 @@ class Action(BaseDocument):
     method_matches_contract: Optional[bool] = None
     evidence_files: List[str] = Field(default_factory=list)
     evidence_sha256: List[str] = Field(default_factory=list)
+    note: Optional[str] = None
     logged_at: str = Field(default_factory=utc_now_iso)  # server timestamp
 
 
