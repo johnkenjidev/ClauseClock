@@ -1,0 +1,23 @@
+{
+  "summary": "PASS overall. Fix A (marker-tolerant STRICT verbatim source validation) verified end-to-end via pure-function unit tests plus existing regression suites. Wrote /app/backend/tests/test_fix_a_marker_tolerant.py with 20 focused checks covering: (1) old strict find_quote_offset returns None across '========== Page N ==========' while find_quote_offset_marker_tolerant returns an int; (2) bridges [Table..], [§..], [loc:..], and DOCX '¶N |' prefixes (individually and mixed); (3) normal non-marker contiguous quote still returns the correct integer offset equal to plain substring position; (4) NO fuzzy/edit-distance/semantic — unknown word, paraphrase, wrong token order, missing token, and extra token quotes all return None; (5) offset indexes the ORIGINAL raw_text and analysis._display_quote strips all marker types, collapses whitespace, and caps at 400 chars; (6) end-to-end analysis.validate_sources with a hand-built chunk_map/docs_by_id where the quote spans a page marker — returned validated source has server-resolved document_id (from chunk_id), integer char_offset into raw_text, marker-free stored quote, and server-resolved 'p.N' location; also verified validate_sources drops a non-verbatim quote; (7) analysis._location_at maps the marker-spanning match to the page the quote STARTS on (page BEFORE the marker), not the page after. Re-ran existing Stage 2 defect suite (10/10) and Stage 1 gate suite (7/7). No code was modified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_fix_a_marker_tolerant.py",
+    "/app/test_reports/pytest/fix_a_results.xml",
+    "/app/test_reports/pytest/stage2_defects_results.xml",
+    "/app/test_reports/pytest/gate_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "analysis.py Fix A implementation is clean and minimal: _MARKER_RE covers all five injected forms; _clean_with_map preserves per-char mapping back to the original raw_text so the returned offset is authoritative for _location_at; find_quote_offset_marker_tolerant still uses re.escape(token) joined by \\s+ — no fuzzy semantics. validate_sources correctly resolves document_id from chunk_map (never trusts model), stores _display_quote and _location_at(raw, offset, file_type). No issues found."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (37/37: 20 Fix A + 10 defects + 7 gate)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "test@clauseclock.app / Test1234! (not exercised — Fix A verification is pure-function; existing stage2_defects suite uses it and passed)",
+  "seed_data_creation": "None (pure-function unit tests; validate_sources exercised with in-memory chunk_map/docs_by_id)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix A verified. New unit file at /app/backend/tests/test_fix_a_marker_tolerant.py is deterministic, ~1.6s, no LLM/DB — safe to include in regression. All markers ('========== Page N ==========', [Table..], [§..], [loc:..], '¶N |') are covered. Non-verbatim/reorder/paraphrase all correctly return None. _location_at behaviour when quote starts on p.N and continues across a marker → resolves to p.N (start page), confirmed.",
+  "rca of the issue": "N/A — verification-only run; Fix A is functioning as specified."
+}
