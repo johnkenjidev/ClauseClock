@@ -1,0 +1,30 @@
+{
+  "summary": "PASS — Verified Stage 3 no-op fix on POST /api/findings/{id}/correct. Wrote 4 focused pytest cases covering exactly the review request. All 4 pass over HTTPS against the public preview URL with pymongo-seeded findings (no LLM).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "per_acceptance": {
+    "no_change_correct_true_noop": "PASS — POST /correct with body equal to current extracted returns {changed_fields: [], no_change: true}. Persisted finding is byte-for-byte identical (state='unconfirmed' preserved, corrected_fields=[], original_values={}, confirmed_at=null, validation_status unchanged, extracted unchanged). DB doc compared before/after via pymongo.",
+    "no_change_correct_does_not_move_accuracy": "PASS — Fresh user, no-op correct save: findings_reviewed=0, confirmed_no_edits=0, corrected=0, correction_rate_pct=0.0, corrected_field_frequency={} — all unchanged. by_type.renewal_notice bucket, if present, remains all zeros (no inflation).",
+    "real_correction_still_works": "PASS — Supplying previously-null effective_date + initial_term_value/unit sets state='corrected', validation_status='validated', changed_fields exactly {effective_date, initial_term_value, initial_term_unit}, original_values snapshots pre-edit nulls, derived next_renewal_date/effective_action_deadline recomputed. /accuracy: corrected +1, findings_reviewed +1, corrected_field_frequency incremented by +1 on each changed field.",
+    "sequence_integrity_real_then_noop": "PASS — Real correction persists (state='corrected', corrected_fields set, confirmed_at set), then a subsequent identical POST /correct is a true no-op: changed_fields==[], no_change=true, corrected_fields unchanged (no duplicates), original_values unchanged, confirmed_at unchanged, /accuracy unchanged, DB doc unchanged (deep-equal via pymongo)."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_correct_noop_fix.py",
+    "/app/test_reports/pytest/noop_fix.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:correct_finding — the no-op short-circuit is correctly placed BEFORE recompute_derived and any DB write; returns the existing doc via Finding.from_mongo(doc). Clean.",
+    "Minor: real-correction path still sets confirmed_at on every real Correct. Not part of this fix but naming (corrected_at) would be clearer. Behavior matches spec."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_correct_noop_fix.py"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "Fresh @example.com users registered per test via POST /api/auth/register / Test1234!. Cleaned up after each test (findings, contracts, users).",
+  "seed_data_creation": "Contracts and renewal_notice findings inserted directly via pymongo under freshly registered users (same pattern as test_clauseclock_stage3.py). All test data deleted in fixture teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix confirmed: correct_finding at /app/backend/server.py:434 short-circuits when `changed==[]` and returns {finding, changed_fields: [], no_change: true} without writing to DB. Regression suite: /app/backend/tests/test_correct_noop_fix.py (4 tests, ~4s). Scope was intentionally narrow per E1 instructions; broader Stage 3 suite in test_clauseclock_stage3.py was not re-run.",
+  "rca of the issue": "Previous implementation unconditionally set state='corrected', confirmed_at, and merged corrected_fields even when zero fields changed, inflating /accuracy corrected counts and mis-labelling untouched findings. Fix: compute `changed` diff over EDITABLE_FIELDS first; if empty, return current doc with no_change=true and skip the DB update entirely."
+}

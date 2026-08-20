@@ -429,6 +429,12 @@ async def correct_finding(finding_id: str, body: CorrectionInput,
     changed = [k for k in analysis.EDITABLE_FIELDS
                if edits.get(k) != prev.get(k)]
 
+    # No-change save is a true no-op: do not touch state, original_values,
+    # corrected_fields, or any derived/accuracy-affecting field.
+    if not changed:
+        return {"finding": Finding.from_mongo(doc).model_dump(),
+                "changed_fields": [], "no_change": True}
+
     recomputed = analysis.recompute_derived(edits)
 
     update = {
@@ -439,15 +445,11 @@ async def correct_finding(finding_id: str, body: CorrectionInput,
         "state": "corrected",
         "confirmed_at": utc_now_iso(),
     }
-    if not changed:
-        # No real change: persist state but never fabricate corrected_fields.
-        update.pop("extracted", None)  # keep prior extracted untouched
-    else:
-        # Snapshot the original (AI) values once; accumulate changed field names.
-        if not doc.get("original_values"):
-            update["original_values"] = {k: prev.get(k) for k in analysis.EDITABLE_FIELDS}
-        prior_corrected = doc.get("corrected_fields", []) or []
-        update["corrected_fields"] = sorted(set(prior_corrected) | set(changed))
+    # Snapshot the original (AI) values once; accumulate changed field names.
+    if not doc.get("original_values"):
+        update["original_values"] = {k: prev.get(k) for k in analysis.EDITABLE_FIELDS}
+    prior_corrected = doc.get("corrected_fields", []) or []
+    update["corrected_fields"] = sorted(set(prior_corrected) | set(changed))
 
     await db.findings.update_one({"_id": oid, "user_id": user_id}, {"$set": update})
     return {"finding": Finding.from_mongo(
