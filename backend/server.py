@@ -14,6 +14,7 @@ dashboard metrics, populated /demo data.
 import asyncio
 import logging
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +28,7 @@ from bson.errors import InvalidId
 from fastapi import (APIRouter, Depends, FastAPI, File, Form, HTTPException,
                      Request, Response, UploadFile)
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from pymongo.errors import DuplicateKeyError
 from starlette.middleware.cors import CORSMiddleware
 
@@ -324,6 +325,178 @@ async def list_findings(contract_id: str, user_id: str = Depends(current_user_id
     async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
         findings.append(Finding.from_mongo(f).model_dump())
     return {"findings": findings, "status": contract.get("status")}
+
+
+# ---- Stage 3: Confirm / Correct / Dismiss --------------------------------
+_UNITS = {None, "day", "days", "month", "months", "year", "years"}
+
+
+class CorrectionInput(BaseModel):
+    effective_date: Optional[str] = None
+    initial_term_value: Optional[int] = None
+    initial_term_unit: Optional[str] = None
+    renewal_type: Optional[str] = None
+    renewal_period_value: Optional[int] = None
+    renewal_period_unit: Optional[str] = None
+    notice_days_min: Optional[int] = None
+    notice_days_max: Optional[int] = None
+    notice_basis: Optional[str] = None
+    business_day_definition: Optional[str] = None
+    notice_measured_to: Optional[str] = None
+    deemed_receipt_rule: Optional[str] = None
+    notice_method: Optional[str] = None
+    notice_recipient: Optional[str] = None
+
+    @field_validator("effective_date")
+    @classmethod
+    def _valid_date(cls, v):
+        if v in (None, ""):
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("effective_date must be YYYY-MM-DD")
+        return v
+
+    @field_validator("initial_term_unit", "renewal_period_unit")
+    @classmethod
+    def _valid_unit(cls, v):
+        if v not in _UNITS:
+            raise ValueError("unit must be days/months/years")
+        return v
+
+    @field_validator("renewal_type")
+    @classmethod
+    def _valid_rt(cls, v):
+        if v not in (None, "automatic", "manual", "none"):
+            raise ValueError("invalid renewal_type")
+        return v
+
+    @field_validator("notice_basis")
+    @classmethod
+    def _valid_basis(cls, v):
+        if v not in (None, "calendar", "business"):
+            raise ValueError("invalid notice_basis")
+        return v
+
+    @field_validator("notice_measured_to")
+    @classmethod
+    def _valid_measured(cls, v):
+        if v not in (None, "sent", "received", "unspecified"):
+            raise ValueError("invalid notice_measured_to")
+        return v
+
+    @field_validator("initial_term_value", "renewal_period_value",
+                     "notice_days_min", "notice_days_max")
+    @classmethod
+    def _non_negative(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+
+async def _get_finding(finding_id: str, user_id: str):
+    try:
+        oid = ObjectId(finding_id)
+    except InvalidId:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+    doc = await db.findings.find_one({"_id": oid, "user_id": user_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+    return oid, doc
+
+
+@api_router.post("/findings/{finding_id}/confirm")
+async def confirm_finding(finding_id: str, user_id: str = Depends(current_user_id)):
+    from models import Finding
+    oid, _ = await _get_finding(finding_id, user_id)
+    await db.findings.update_one(
+        {"_id": oid, "user_id": user_id},
+        {"$set": {"state": "confirmed", "confirmed_at": utc_now_iso()}})
+    return {"finding": Finding.from_mongo(
+        await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
+
+
+@api_router.post("/findings/{finding_id}/correct")
+async def correct_finding(finding_id: str, body: CorrectionInput,
+                          user_id: str = Depends(current_user_id)):
+    from models import Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    prev = doc.get("extracted", {}) or {}
+    edits = body.model_dump()
+
+    # Record only fields that actually changed.
+    changed = [k for k in analysis.EDITABLE_FIELDS
+               if edits.get(k) != prev.get(k)]
+
+    recomputed = analysis.recompute_derived(edits)
+
+    update = {
+        "extracted": recomputed["extracted"],
+        "validation_status": recomputed["validation_status"],
+        "validation_notes": recomputed["validation_notes"],
+        "action_required": recomputed["action_required"],
+        "state": "corrected",
+        "confirmed_at": utc_now_iso(),
+    }
+    if not changed:
+        # No real change: persist state but never fabricate corrected_fields.
+        update.pop("extracted", None)  # keep prior extracted untouched
+    else:
+        # Snapshot the original (AI) values once; accumulate changed field names.
+        if not doc.get("original_values"):
+            update["original_values"] = {k: prev.get(k) for k in analysis.EDITABLE_FIELDS}
+        prior_corrected = doc.get("corrected_fields", []) or []
+        update["corrected_fields"] = sorted(set(prior_corrected) | set(changed))
+
+    await db.findings.update_one({"_id": oid, "user_id": user_id}, {"$set": update})
+    return {"finding": Finding.from_mongo(
+        await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump(),
+        "changed_fields": changed}
+
+
+@api_router.post("/findings/{finding_id}/dismiss")
+async def dismiss_finding(finding_id: str, user_id: str = Depends(current_user_id)):
+    from models import Finding
+    oid, _ = await _get_finding(finding_id, user_id)
+    # Preserve the finding and its provenance; only change state.
+    await db.findings.update_one(
+        {"_id": oid, "user_id": user_id}, {"$set": {"state": "dismissed"}})
+    return {"finding": Finding.from_mongo(
+        await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
+
+
+@api_router.get("/accuracy")
+async def accuracy(user_id: str = Depends(current_user_id)):
+    """Operator instrumentation over stored findings. Not a learning system."""
+    reviewed = confirmed = corrected = 0
+    field_freq: dict = {}
+    by_type: dict = {}
+    async for f in db.findings.find({"user_id": user_id}):
+        ftype = f.get("type", "unknown")
+        bt = by_type.setdefault(
+            ftype, {"reviewed": 0, "confirmed_no_edits": 0, "corrected": 0})
+        state = f.get("state")
+        if state in ("confirmed", "corrected"):
+            reviewed += 1
+            bt["reviewed"] += 1
+        if state == "confirmed":
+            confirmed += 1
+            bt["confirmed_no_edits"] += 1
+        elif state == "corrected":
+            corrected += 1
+            bt["corrected"] += 1
+            for name in f.get("corrected_fields", []) or []:
+                field_freq[name] = field_freq.get(name, 0) + 1
+    return {
+        "findings_reviewed": reviewed,
+        "confirmed_no_edits": confirmed,
+        "corrected": corrected,
+        "correction_rate_pct": round(100 * corrected / reviewed, 1) if reviewed else 0.0,
+        "corrected_field_frequency": dict(
+            sorted(field_freq.items(), key=lambda x: (-x[1], x[0]))),
+        "by_type": by_type,
+    }
 
 
 @api_router.delete("/contracts/{contract_id}")

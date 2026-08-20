@@ -1,0 +1,38 @@
+{
+  "summary": "PASS — Full Stage 3 verification (backend + frontend). Wrote 14 new backend tests covering Confirm/Correct/Dismiss/accuracy/isolation/validation; all pass. Re-ran the 6 Stage 1-2 regression suites; all 89 tests remain green. Frontend E2E on a seeded fresh user + seeded finding: Correct dialog updates the card to hero 'MAY 2' + 'Corrected' badge with computed 'June 1, 2027' next renewal and '255 days remaining' (matches deterministic Stage 2 math), Dismiss shows 'Dismissed' badge, both states persist after full page reload, and /accuracy page numbers (1/0/1/100%) match GET /api/accuracy exactly, including corrected_field_frequency tallies.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "per_acceptance": {
+    "confirm_persists_no_edit_change": "PASS — state=='confirmed', confirmed_at set, extracted byte-for-byte unchanged.",
+    "correct_recompute_unblocks_deadline": "PASS — Daktronics-style needs_review with null effective_date → after correct: state=corrected, validation_status=validated, next_renewal_date/effective_action_deadline/days_remaining populated (deadline == next_renewal_date - 30 calendar days), original_values.effective_date==null, corrected_fields exactly {effective_date, initial_term_value, initial_term_unit}.",
+    "correct_no_change_noop": "PASS — changed_fields==[] and finding.corrected_fields is preserved (['effective_date']), not overwritten or duplicated.",
+    "invalid_values_rejected_422": "PASS — effective_date=2024-13-40 → 422; notice_days_min=-5 → 422; renewal_type='foo' → 422; initial_term_unit='fortnights' → 422; notice_basis='lunar' → 422. In every case the finding document is unchanged.",
+    "dismiss_preserves_provenance": "PASS — state=='dismissed', sources[] length unchanged, still returned by GET /api/contracts/{cid}/findings.",
+    "persistence_after_actions": "PASS — GET listing after confirm/correct/dismiss returns persisted states + recomputed dates; UI reload preserves badges.",
+    "user_id_isolation": "PASS — user B → 404 on confirm/correct/dismiss and listing of user A's contract findings; fresh user's /accuracy returns zeros.",
+    "accuracy_correctness": "PASS — Seeded (3 confirm, 2 correct, 1 dismiss): findings_reviewed=5, confirmed_no_edits=3, corrected=2, correction_rate_pct=40.0, corrected_field_frequency each of effective_date/initial_term_value/initial_term_unit == 2, by_type.renewal_notice == {reviewed:5, confirmed_no_edits:3, corrected:2}. Dismissed is NOT counted as reviewed.",
+    "frontend_e2e": "PASS — data-testids finding-confirm-btn/correct-btn/dismiss-btn present; correct-dialog opens; correct-save updates card to computed hero date + Corrected badge; Dismiss shows Dismissed badge; reload preserves state; accuracy-reviewed/confirmed/corrected/rate render numbers identical to /api/accuracy.",
+    "stage_1_2_regression": "PASS — pytest test_clauseclock_gate.py test_fix_a_marker_tolerant.py test_clauseclock_stage2.py test_clauseclock_stage2_defects.py test_clauseclock_stage2_typography.py test_clauseclock_stage2_locate_retry.py -> 89 passed."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_stage3.py",
+    "/app/test_reports/pytest/stage3.xml",
+    "/app/test_reports/stage3_contract.png",
+    "/app/test_reports/stage3_accuracy.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:correct_finding — when there are NO changed fields the code correctly skips overwriting `extracted` and `corrected_fields`, but it still writes `validation_status`/`validation_notes`/`action_required` from `recompute_derived(edits)`. Since edits==prev in the no-change path this is a no-op today, but the code path is fragile: if a future edit ever passes partial fields with the same values, recompute_derived is called with edits (correctly reflecting the current extracted) — currently fine. Consider short-circuiting the whole update when changed==[].",
+    "server.py:correct_finding always sets confirmed_at on Correct — spec says confirmed_at is set on Confirm; Correct arguably should use a separate timestamp (e.g. corrected_at). Minor / naming only; behavior matches the review request.",
+    "analysis.recompute_derived — validation_status flips to needs_review if any required field is missing and nulls the derived deadlines; this matches Stage 2 behaviour and is exercised by test_correct_recompute_unblocks_deadline.",
+    "server.py /accuracy is O(n) over all user findings; fine at Stage 3 scale. If dataset grows, consider aggregation pipeline.",
+    "CorrectFindingDialog.jsx uses parseInt with no radix guard but the Input type=number restricts to numerics; acceptable."
+  ],
+  "updated_files": ["/app/backend/tests/test_clauseclock_stage3.py"],
+  "success_rate": {"backend": "100% (14/14 stage3 + 89/89 regression)", "frontend": "100%"},
+  "test_credentials": "Seeded user test@clauseclock.app / Test1234! (works). Fresh users registered via POST /api/auth/register with @example.com domain — @ex.test is rejected by EmailStr.",
+  "seed_data_creation": "Backend tests seed contracts+findings directly via pymongo (same DB) under fresh registered users, then clean up. Frontend test seeded 1 contract + 2 findings via /tmp/seed_ui.py, exercised UI, then cleaned up.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stage 3 is fully verified. New pytest file /app/backend/tests/test_clauseclock_stage3.py is a persistent regression suite that seeds findings via pymongo (no LLM). To exercise the UI end-to-end without LLM cost, run /tmp/seed_ui.py-style seeding (register a user via API, then insert Finding docs directly). Note: EmailStr rejects .test TLD — use @example.com. When testing /accuracy in UI, its route is /accuracy (NOT /app/accuracy)."
+}

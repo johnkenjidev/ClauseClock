@@ -176,7 +176,10 @@ export default function ContractDetail() {
         )}
 
         <div className="space-y-6">
-          {findings.map((f) => <FindingCard key={f.id} finding={f} />)}
+          {findings.map((f) => (
+            <FindingCard key={f.id} finding={f}
+              onChanged={(u) => setFindings((fs) => fs.map((x) => (x.id === u.id ? u : x)))} />
+          ))}
         </div>
       </div>
 

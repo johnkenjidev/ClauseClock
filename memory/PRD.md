@@ -58,6 +58,12 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - Stage 2 accuracy repair (2026-08-20): 1:1 typographic normalization in validation (curly quotes/dashes/nbsp; offset-preserving; still strict, no fuzzy), deterministic high-recall locate union (RENEWAL_HINT) + one found:false retry. Verified 89/89 (iteration_6). Live 10-contract re-run: provenance 56/56, #10 computes correct deadline (2028-02-01), all findings carry validated renewal_term; no zero-source findings.
 
 ## Backlog (prioritized)
+### Stage 3 — confirmation + accuracy (2026-08-20)
+- Confirm/Correct/Dismiss on renewal_notice findings (server-scoped by user_id): confirm sets state+confirmed_at (extracted unchanged); correct edits the 14 extracted fields, snapshots original_values (first time), records exact corrected_fields, recomputes derived dates via deterministic Stage 2 logic (no LLM), state=corrected; dismiss sets state, preserves provenance.
+- Internal GET /api/accuracy + /accuracy page: reviewed, confirmed_no_edits, corrected, correction_rate_pct, corrected_field_frequency, by_type (instrumentation only, not learning).
+- Files: server.py (CorrectionInput + 3 finding endpoints + accuracy), analysis.py (EDITABLE_FIELDS, recompute_derived), FindingCard.jsx + CorrectFindingDialog.jsx + Accuracy.jsx. Tests: test_clauseclock_stage3.py (14/14) + 89/89 regression. iteration_8.
+- Known minor: a no-change Correct still sets state=corrected (corrected_fields stays empty, so no fake fields) — counts as a review in /accuracy; left as-is per minimal-change scope.
+
 - P0 (Stage 2): AI clause extraction pipeline (chunk/locate/extract/validate), findings creation.
 - P1 (Stage 3-5): deadline computation, ranking, explanations, Confirm/Correct/Dismiss, composites.
 - P1 (Stage 6): reminders (needs verified background scheduling).

@@ -4,8 +4,17 @@
 // source locations. No plain-English explanations (that is Stage 4).
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check, Pencil, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 import { LegalFooter } from "@/components/cc/Primitives";
+import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
+
+const STATE_BADGE = {
+  confirmed: { label: "Confirmed", cls: "bg-seal text-paper" },
+  corrected: { label: "Corrected", cls: "bg-seal text-paper" },
+  dismissed: { label: "Dismissed", cls: "bg-document text-ink-soft border border-rule" },
+};
 
 const PURPOSE_LABEL = {
   effective_date: "Effective date",
@@ -48,11 +57,22 @@ function tone(f) {
 const TONE_TEXT = { stamp: "text-stamp", pending: "text-pending", neutral: "text-ink" };
 const TONE_RULE = { stamp: "bg-stamp", pending: "bg-pending", neutral: "bg-seal" };
 
-export function FindingCard({ finding }) {
+export function FindingCard({ finding, onChanged }) {
   const [open, setOpen] = useState(false);
+  const [correctOpen, setCorrectOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const e = finding.extracted || {};
   const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
+  const badge = STATE_BADGE[finding.state];
+
+  const act = async (verb) => {
+    setBusy(true);
+    try {
+      const { data } = await api.post(`/findings/${finding.id}/${verb}`);
+      onChanged?.(data.finding);
+    } finally { setBusy(false); }
+  };
 
   const grouped = {};
   for (const s of finding.sources || []) {
@@ -101,6 +121,12 @@ export function FindingCard({ finding }) {
             )}
           </div>
           <div className="text-right">
+            {badge && (
+              <span data-testid="finding-state-badge"
+                className={`inline-block cc-eyebrow px-2.5 py-1 rounded-full mb-2 ${badge.cls}`}>
+                {badge.label}
+              </span>
+            )}
             <p className="cc-eyebrow">Confidence</p>
             <p className={`cc-finding-title text-[16px] mt-1 capitalize ${TONE_TEXT[t]}`}
               data-testid="finding-confidence">{finding.confidence}</p>
@@ -135,6 +161,25 @@ export function FindingCard({ finding }) {
             ))}
           </ul>
         )}
+
+        {/* Stage 3 actions: Confirm / Correct / Dismiss */}
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
+            onClick={() => act("confirm")}
+            className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
+            <Check className="h-4 w-4" strokeWidth={2.5} /> Confirm
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} data-testid="finding-correct-btn"
+            onClick={() => setCorrectOpen(true)}
+            className="rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-document">
+            <Pencil className="h-4 w-4" strokeWidth={2} /> Correct
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} data-testid="finding-dismiss-btn"
+            onClick={() => act("dismiss")}
+            className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-stamp hover:bg-document">
+            <X className="h-4 w-4" strokeWidth={2} /> Dismiss
+          </Button>
+        </div>
 
         {/* Clause drawer toggle */}
         <button
@@ -176,6 +221,9 @@ export function FindingCard({ finding }) {
       <div className="px-6 py-5 border-t border-rule">
         <LegalFooter />
       </div>
+
+      <CorrectFindingDialog finding={finding} open={correctOpen}
+        onOpenChange={setCorrectOpen} onSaved={(f) => onChanged?.(f)} />
     </div>
   );
 }

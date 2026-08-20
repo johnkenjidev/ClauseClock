@@ -282,6 +282,37 @@ def compute_dates(extracted: dict, today: date) -> dict:
     return out, notes, needs_review
 
 
+# Fields a user may edit via Correct. Computed/derived fields are excluded.
+EDITABLE_FIELDS = [
+    "effective_date", "initial_term_value", "initial_term_unit", "renewal_type",
+    "renewal_period_value", "renewal_period_unit", "notice_days_min",
+    "notice_days_max", "notice_basis", "business_day_definition",
+    "notice_measured_to", "deemed_receipt_rule", "notice_method",
+    "notice_recipient",
+]
+
+
+def recompute_derived(edits: dict, today: date = None) -> dict:
+    """Recompute server-derived dates + normalized fields from edited values
+    using the SAME deterministic Stage 2 logic (no LLM). Used by Correct."""
+    today = today or date.today()
+    computed, notes, review = compute_dates(edits, today)
+    validation_status = "needs_review" if review else "validated"
+    fields = {k: edits.get(k) for k in EDITABLE_FIELDS}
+    fields.update(computed)
+    if validation_status == "needs_review":
+        for k in ("action_deadline", "earliest_action_date",
+                  "effective_action_deadline", "days_remaining"):
+            fields[k] = None
+    return {
+        "extracted": fields,
+        "validation_status": validation_status,
+        "validation_notes": notes,
+        "action_required": edits.get("renewal_type") == "automatic",
+    }
+
+
+
 async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
     """Orchestrate the pipeline and persist renewal_notice finding(s).
     Returns (findings, warnings)."""
