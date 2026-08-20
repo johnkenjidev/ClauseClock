@@ -224,7 +224,7 @@ class Action(BaseDocument):
     sent_date: str                     # ISO YYYY-MM-DD string
     delivery_method: Optional[str] = None
     method_matches_contract: Optional[bool] = None
-    evidence_files: List[str] = Field(default_factory=list)
+    evidence_files: List[dict] = Field(default_factory=list)
     evidence_sha256: List[str] = Field(default_factory=list)
     note: Optional[str] = None
     logged_at: str = Field(default_factory=utc_now_iso)  # server timestamp

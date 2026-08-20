@@ -2,7 +2,7 @@
 // urgency. Opening one shows a Notice Checklist built only from validated
 // contract sources, and can generate a grounded non-renewal draft. ClauseClock
 // does NOT send anything; the user must verify and send it themselves.
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { FileText, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +91,51 @@ function LogActionForm({ findingId, contractMethod }) {
                   {contractMethod ? ` (“${contractMethod}”)` : ""}. Double-check your contract before relying on this notice.
                 </p>
               )}
+              <EvidenceBlock action={a} onChanged={load} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const API_BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function EvidenceBlock({ action, onChanged }) {
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const files = action.evidence_files || [];
+
+  const upload = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try { await api.post(`/actions/${action.id}/evidence`, fd); onChanged?.(); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-rule" data-testid={`evidence-block-${action.id}`}>
+      <div className="flex items-center justify-between">
+        <span className="cc-eyebrow">Evidence of action</span>
+        <button data-testid={`evidence-upload-btn-${action.id}`} disabled={busy}
+          onClick={() => ref.current?.click()}
+          className="cc-section-ref text-seal hover:underline">{busy ? "Uploading…" : "Attach evidence"}</button>
+        <input ref={ref} type="file" className="hidden"
+          data-testid={`evidence-input-${action.id}`}
+          onChange={(e) => upload(e.target.files?.[0])} />
+      </div>
+      {files.length === 0 ? (
+        <p className="cc-days-remaining mt-1 text-ink-soft">No evidence attached. This is a record of what you sent — not proof of valid notice.</p>
+      ) : (
+        <ul className="mt-2 space-y-1" data-testid={`evidence-list-${action.id}`}>
+          {files.map((f, i) => (
+            <li key={i} className="flex items-center justify-between rounded-md border border-rule bg-document px-3 py-2">
+              <a href={`${API_BASE}/actions/${action.id}/evidence/${i}`} target="_blank" rel="noreferrer"
+                className="cc-section-ref text-ink hover:text-seal">{f.filename}</a>
+              <span className="cc-days-remaining">{(f.size_bytes / 1024).toFixed(0)} KB · SHA-256 {String(f.sha256).slice(0, 10)}… · {String(f.uploaded_at).slice(0, 10)}</span>
             </li>
           ))}
         </ul>

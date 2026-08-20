@@ -631,6 +631,56 @@ async def list_actions(finding_id: str, user_id: str = Depends(current_user_id))
     return {"actions": actions, "contract_method": contract_method}
 
 
+@api_router.post("/actions/{action_id}/evidence")
+async def upload_evidence(action_id: str, file: UploadFile = File(...),
+                          user_id: str = Depends(current_user_id)):
+    """Attach an evidence file to a logged action (existing GridFS pattern)."""
+    from models import Action
+    try:
+        oid = ObjectId(action_id)
+    except InvalidId:
+        raise HTTPException(status_code=404, detail="Action not found.")
+    doc = await db.actions.find_one({"_id": oid, "user_id": user_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Action not found.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    storage_key = await ingestion.store_original(
+        bucket, data, file.filename, file.content_type or "application/octet-stream")
+    sha = ingestion.sha256_hex(data)
+    entry = {
+        "storage_key": storage_key, "filename": file.filename,
+        "mime_type": file.content_type or "application/octet-stream",
+        "size_bytes": len(data), "sha256": sha,
+        "uploaded_at": utc_now_iso(), "label": "Evidence of action",
+    }
+    await db.actions.update_one(
+        {"_id": oid, "user_id": user_id},
+        {"$push": {"evidence_files": entry, "evidence_sha256": sha}})
+    return {"evidence": entry}
+
+
+@api_router.get("/actions/{action_id}/evidence/{index}")
+async def download_evidence(action_id: str, index: int,
+                            user_id: str = Depends(current_user_id)):
+    from fastapi.responses import Response as FileResponse
+    try:
+        oid = ObjectId(action_id)
+    except InvalidId:
+        raise HTTPException(status_code=404, detail="Action not found.")
+    doc = await db.actions.find_one({"_id": oid, "user_id": user_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Action not found.")
+    files = doc.get("evidence_files", []) or []
+    if index < 0 or index >= len(files) or not isinstance(files[index], dict):
+        raise HTTPException(status_code=404, detail="Evidence not found.")
+    meta = files[index]
+    data = await ingestion.read_original(bucket, meta["storage_key"])
+    return FileResponse(content=data, media_type=meta.get("mime_type", "application/octet-stream"),
+                        headers={"Content-Disposition": f'inline; filename="{meta.get("filename","evidence")}"'})
+
+
 @api_router.get("/accuracy")
 async def accuracy(user_id: str = Depends(current_user_id)):
     """Operator instrumentation over stored findings. Not a learning system."""
