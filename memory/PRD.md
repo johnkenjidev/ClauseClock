@@ -54,6 +54,8 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - Endpoints: POST /api/contracts/{id}/analyze, GET /api/contracts/{id}/findings (user-scoped).
 - UI: FindingCard (hero deadline Archivo Expanded, days remaining, stamp/pending/neutral tone, key facts, confidence) + signature clause drawer grouping verbatim quotes by purpose with server-resolved locations. No plain-English (Stage 4).
 - Tests: /app/backend/tests/test_clauseclock_stage2.py (9/9) + gate regression (7/7); frontend E2E happy + needs_review. iteration_3.json.
+- Stage 2 defect fixes (marker-tolerant strict validation Fix A; zero-source invariant; multi-purpose sources): iteration_4/5.
+- Stage 2 accuracy repair (2026-08-20): 1:1 typographic normalization in validation (curly quotes/dashes/nbsp; offset-preserving; still strict, no fuzzy), deterministic high-recall locate union (RENEWAL_HINT) + one found:false retry. Verified 89/89 (iteration_6). Live 10-contract re-run: provenance 56/56, #10 computes correct deadline (2028-02-01), all findings carry validated renewal_term; no zero-source findings.
 
 ## Backlog (prioritized)
 - P0 (Stage 2): AI clause extraction pipeline (chunk/locate/extract/validate), findings creation.

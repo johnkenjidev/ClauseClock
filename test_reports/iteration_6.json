@@ -1,0 +1,33 @@
+{
+  "summary": "PASS. ClauseClock Stage 2 accuracy repair fully verified. Added two new deterministic test files covering the three delta pieces (typographic normalization, high-recall locate-union fallback, one-shot found:false retry) and re-ran ALL existing regressions. Totals: 89/89 tests pass across 6 files (Stage 1 gate 7, Fix A marker-tolerant 20, NEW Stage 2 typography 38, NEW Stage 2 locate/retry 5, Stage 2 defects 10, Stage 2 happy-path 9). Key verified properties: (1) analysis._norm is strictly 1:1 (character-length preserved for every mapped code point) — so offsets returned from find_quote_offset_marker_tolerant index the ORIGINAL raw_text; verified for all curly quotes (U+2018/2019/201A/201B/201C/201D/201E/201F), dashes (U+2010–U+2015, U+2212), and spaces (U+00A0/2007/2009/202F/2060/FEFF). (2) STRICT semantics preserved after normalization: wrong-word, paraphrase, reordered-tokens, extra-word, absent-word quotes ALL return None — normalization did NOT enable fuzzy matching. (3) Marker + typography combined: quotes that BOTH span '========== Page N ==========' AND use ASCII typography while raw has Unicode still resolve to the correct integer offset into original raw_text and validate_sources end-to-end returns location 'p.1' (starting page). (4) Zero-source invariant preserved: monkeypatched extract with non-verbatim quotes yields findings=[], warnings=['Candidate renewal language was detected, but no source quote could be validated.'], persisted findings=[], HTTP /findings=[]. (5) High-recall locate fallback: with AI locate returning [] and hint chunks present, extract IS still called with the hint chunks and a valid finding is produced. (6) found:false retry is EXACTLY-ONCE: 2 extract calls when hints exist and both return false (no infinite loop), 1 extract call when no hint chunks exist (non-renewing contract stays no-finding). (7) Deterministic deadline arithmetic: effective 2026-03-15 + 12 months - 60 days = 2027-01-14; leap-year 2027-03-31 + 12 months - 60 days = 2028-01-31 (verified crossing Feb 29); rolls forward past today using renewal_period until > today. (8) Multi-purpose sources: single clause supports both renewal_term and notice_period (validated via real LLM in TestMultiPurposeSources). (9) Provenance integrity: stored char_offset for every source == analysis.find_quote_offset_marker_tolerant(raw_text, stored_quote) — recomputed via HTTP and matched exactly. (10) Auth isolation: cross-user GET/POST returns 404 for all created contracts. (11) RENEWAL_HINT regex matches 8/8 common renewal wordings, does not match 4/4 unrelated wordings. NO code was modified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_stage2_typography.py",
+    "/app/backend/tests/test_clauseclock_stage2_locate_retry.py",
+    "/app/backend/tests/test_clauseclock_stage2_defects.py",
+    "/app/backend/tests/test_clauseclock_stage2.py",
+    "/app/backend/tests/test_fix_a_marker_tolerant.py",
+    "/app/backend/tests/test_clauseclock_gate.py",
+    "/app/test_reports/pytest/typography_results.xml",
+    "/app/test_reports/pytest/locate_retry_results.xml",
+    "/app/test_reports/pytest/stage2_defects_results.xml",
+    "/app/test_reports/pytest/stage2_results.xml",
+    "/app/test_reports/pytest/gate_and_fixa.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "analysis.py Stage 2 accuracy repair is clean and minimal. _TYPO_TABLE is exhaustive for the observed pdfplumber outputs and every entry is 1:1 so _norm preserves character offsets (verified with a per-codepoint length assertion). find_quote_offset_marker_tolerant applies _norm to BOTH sides before re.escape+\\s+ join — words must still match exactly and in order (no fuzzy). _clean_with_map's offset_map correctly re-maps cleaned matches back to the ORIGINAL raw string. RENEWAL_HINT is conservative enough to avoid false hint-unions on unrelated clauses. run_renewal_analysis's retry is guarded by 'hint_ids' AND 'found is False' AND 'focus not empty' — no risk of infinite loops. Zero-source invariant enforced BEFORE any persistence. No code changes recommended."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_clauseclock_stage2_typography.py (NEW)",
+    "/app/backend/tests/test_clauseclock_stage2_locate_retry.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (89/89: 38 typo + 5 retry + 20 fixA + 10 defects + 9 stage2 + 7 gate)", "frontend": "N/A (not requested; verification is backend + pure-function)"},
+  "test_credentials": "test@clauseclock.app / Test1234! (used by all LLM-driven tests; second user auto-registered per-run for isolation checks)",
+  "seed_data_creation": "New in-process tests create TEST_stage2_* contracts under the seeded user and hard-delete them in the module teardown fixture. No orphan data remains.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two new test files are safe for CI regression: test_clauseclock_stage2_typography.py is fully pure-function (~1.5s, no LLM/DB), test_clauseclock_stage2_locate_retry.py is in-process with monkeypatched llm.locate/extract (~3s, needs real Mongo + auth to seed a contract but NO real LLM calls). Full backend regression command: python -m pytest /app/backend/tests/test_clauseclock_gate.py /app/backend/tests/test_fix_a_marker_tolerant.py /app/backend/tests/test_clauseclock_stage2_typography.py /app/backend/tests/test_clauseclock_stage2_locate_retry.py /app/backend/tests/test_clauseclock_stage2_defects.py /app/backend/tests/test_clauseclock_stage2.py -v -o addopts='' --tb=short. Per the main agent's request, the 10-contract accuracy gate PASS/FAIL is NOT scored here — the main agent runs that separately.",
+  "rca of the issue": "N/A — Stage 2 accuracy repair verified functioning as specified. Root fix (typographic 1:1 normalization applied consistently on BOTH sides + high-recall union + one-shot retry) does exactly what its docstring claims and does NOT compromise the strict verbatim contract."
+}

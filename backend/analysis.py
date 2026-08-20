@@ -26,6 +26,10 @@ import llm
 CHUNK_SIZE = 3000
 CHUNK_OVERLAP = 200
 REQUIRED_PURPOSES = {"renewal_term", "notice_period"}
+RENEWAL_HINT = re.compile(
+    r"automatic(ally)?\s+renew|renew(s|al)?\s+(for|term|automatically)|"
+    r"non[- ]renewal|not\s+to\s+renew|renewal\s+term|successive\s+.{0,12}\s*terms",
+    re.I)
 PDF_PAGE_RE = re.compile(r"=+\s*Page\s+(\d+)\s*=+")
 DOCX_SEC_RE = re.compile(r"\[§\s*(.+?)\]")
 
@@ -113,6 +117,25 @@ def _strip_markers(text: str) -> str:
     return _MARKER_RE.sub(" ", text or "")
 
 
+# Typographic normalization. PDF text extraction yields Unicode curly quotes,
+# apostrophes and dashes where the model echoes plain ASCII (or vice versa).
+# These are the SAME characters typographically — normalizing them is NOT fuzzy
+# matching (words must still match exactly and in order). All mappings are 1:1
+# so character offsets are preserved.
+_TYPO_TABLE = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'",   # single quotes
+    "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"',   # double quotes
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-",   # hyphens/dashes
+    "\u2014": "-", "\u2015": "-", "\u2212": "-",
+    "\u00a0": " ", "\u2007": " ", "\u2009": " ", "\u202f": " ",   # nbsp/thin spaces
+    "\u2060": " ", "\ufeff": " ",                                  # word joiner/bom
+})
+
+
+def _norm(text: str) -> str:
+    return (text or "").translate(_TYPO_TABLE)
+
+
 def _clean_with_map(raw: str):
     """Return (cleaned_raw, offset_map) where offset_map[i] is the original
     index in `raw` of cleaned_raw[i]. Injected markers become a single space."""
@@ -129,13 +152,15 @@ def _clean_with_map(raw: str):
 
 
 def find_quote_offset_marker_tolerant(raw_text: str, quote: str):
-    """Like find_quote_offset but ignores ClauseClock's injected markers.
-    Returns the offset in the ORIGINAL raw_text, or None."""
-    q = _strip_markers(quote).strip()
+    """Like find_quote_offset but ignores ClauseClock's injected markers and
+    normalizes typographic variants (curly quotes/dashes). Returns the offset
+    in the ORIGINAL raw_text, or None. Not fuzzy: words must match exactly."""
+    q = _norm(_strip_markers(quote)).strip()
     tokens = q.split()
     if not tokens:
         return None
-    cleaned, omap = _clean_with_map(raw_text)
+    # 1:1 typographic normalization preserves offsets vs the original raw_text.
+    cleaned, omap = _clean_with_map(_norm(raw_text))
     pattern = r"\s+".join(re.escape(tok) for tok in tokens)
     m = re.search(pattern, cleaned)
     if not m:
@@ -146,7 +171,7 @@ def find_quote_offset_marker_tolerant(raw_text: str, quote: str):
 def _display_quote(quote: str) -> str:
     """Quote for storage/display with injected markers removed (still verbatim
     contract wording, just without our page/section artifacts)."""
-    return re.sub(r"\s+", " ", _strip_markers(quote)).strip()[:400]
+    return re.sub(r"\s+", " ", _norm(_strip_markers(quote))).strip()[:400]
 
 
 def validate_sources(sources: list[dict], chunk_map: dict,
@@ -276,12 +301,23 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
     if not chunks:
         return [], []
 
+    # Deterministic high-recall fallback: always include chunks that contain
+    # explicit renewal language, in case the AI locate pass misses them.
+    hint_ids = [c["chunk_id"] for c in chunks if RENEWAL_HINT.search(c["text"])]
+
     candidate_ids = await llm.locate(chunks)
+    candidate_ids = list(dict.fromkeys((candidate_ids or []) + hint_ids))
     if not candidate_ids:
         return [], []
     candidates = [c for c in chunks if c["chunk_id"] in candidate_ids]
 
     extracted = await llm.extract(candidates)
+    # At most one targeted retry when the model returns found:false despite
+    # explicit candidate renewal language being present.
+    if (not isinstance(extracted, dict) or not extracted.get("found")) and hint_ids:
+        focus = [c for c in chunks if c["chunk_id"] in set(hint_ids)]
+        if focus:
+            extracted = await llm.extract(focus)
     if not isinstance(extracted, dict) or not extracted.get("found"):
         return [], []
 
