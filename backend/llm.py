@@ -165,3 +165,29 @@ async def explain(sources: list[dict], facts: dict) -> dict:
         "Write the JSON explanation."
     )
     return _parse_json(await chat.send_message(UserMessage(text=prompt)))
+
+
+DRAFT_SYSTEM = (
+    "You draft a NON-RENEWAL notice letter for a customer to send to a vendor, "
+    "using ONLY the provided validated contract quotes and server-computed "
+    "facts. STRICT RULES: use only the recipient, method, and timing given; do "
+    "NOT invent addresses, dates, names, or clause references not provided; use "
+    "clearly bracketed placeholders like [Your Name], [Your Company], [Date] "
+    "for anything not provided. Do NOT assert legal validity, compliance, or "
+    "that the notice satisfies any requirement. Do NOT give legal advice. "
+    "Return PLAIN TEXT only (no JSON, no markdown), a ready-to-edit letter that "
+    "states the sender does not intend to renew and references the contract's "
+    "own notice terms as quoted."
+)
+
+
+async def draft_notice(sources: list[dict], facts: dict) -> str:
+    chat = _new_chat(DRAFT_SYSTEM)
+    quotes = "\n".join(f"[{s.get('purpose')}] \"{s.get('quote')}\"" for s in sources)
+    prompt = (
+        f"Server-computed facts: {facts}\n\n"
+        f"Validated contract quotes (your ONLY basis):\n{quotes}\n\n"
+        "Draft the non-renewal notice letter as plain text with bracketed "
+        "placeholders for anything not provided."
+    )
+    return (await chat.send_message(UserMessage(text=prompt))).strip()

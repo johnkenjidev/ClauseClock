@@ -546,3 +546,19 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
     if validation_status == "validated":
         fd = await generate_explanation(db, fd, user_id)
     return [fd], []
+
+
+async def draft_non_renewal_notice(finding: dict) -> str:
+    """Draft a non-renewal notice grounded ONLY in the confirmed finding's
+    validated sources + server-computed timing. No legal-validity claims."""
+    e = finding.get("extracted", {}) or {}
+    facts = {
+        "notice_method": e.get("notice_method"),
+        "notice_recipient": e.get("notice_recipient"),
+        "notice_days_min": e.get("notice_days_min"),
+        "notice_basis": e.get("notice_basis"),
+        "next_renewal_date": e.get("next_renewal_date"),
+        "action_deadline": e.get("effective_action_deadline"),
+    }
+    return await llm.draft_notice(finding.get("sources", []), facts)
+

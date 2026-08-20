@@ -481,6 +481,84 @@ async def dismiss_finding(finding_id: str, user_id: str = Depends(current_user_i
         await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
 
 
+@api_router.get("/action-center")
+async def action_center(user_id: str = Depends(current_user_id)):
+    """Confirmed, actionable renewal findings grouped by urgency (server-side)."""
+    from models import Finding
+    items = []
+    async for f in db.findings.find({
+        "user_id": user_id, "type": "renewal_notice",
+        "state": {"$in": ["confirmed", "corrected"]},
+        "action_required": True,
+    }):
+        fd = Finding.from_mongo(f).model_dump()
+        fd = analysis.apply_ranking([fd])[0]
+        contract = await db.contracts.find_one(
+            {"_id": ObjectId(fd["contract_id"]), "user_id": user_id})
+        fd["contract_name"] = contract.get("name") if contract else None
+        items.append(fd)
+    items.sort(key=lambda x: x.get("rank_score", 0), reverse=True)
+
+    buckets = {"urgent": [], "next_30_days": [], "later": []}
+    for it in items:
+        dr = (it.get("extracted") or {}).get("days_remaining")
+        if dr is not None and dr <= 14:
+            buckets["urgent"].append(it)
+        elif dr is not None and dr <= 30:
+            buckets["next_30_days"].append(it)
+        else:
+            buckets["later"].append(it)
+    return {"buckets": buckets, "count": len(items)}
+
+
+@api_router.get("/findings/{finding_id}/checklist")
+async def notice_checklist(finding_id: str, user_id: str = Depends(current_user_id)):
+    """Notice checklist built ONLY from the finding's validated sources."""
+    from models import Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    f = Finding.from_mongo(doc).model_dump()
+    e = f.get("extracted", {}) or {}
+    by_purpose = {}
+    for s in f.get("sources", []):
+        by_purpose.setdefault(s["purpose"], []).append(
+            {"quote": s["quote"], "location": s["location"]})
+    return {
+        "method": {"value": e.get("notice_method"), "sources": by_purpose.get("notice_method", [])},
+        "recipient": {"value": e.get("notice_recipient"), "sources": by_purpose.get("notice_recipient", [])},
+        "timing": {
+            "notice_days_min": e.get("notice_days_min"),
+            "notice_days_max": e.get("notice_days_max"),
+            "notice_basis": e.get("notice_basis"),
+            "next_renewal_date": e.get("next_renewal_date"),
+            "action_deadline": e.get("effective_action_deadline"),
+            "sources": by_purpose.get("notice_period", []),
+        },
+        "renewal_term": {"sources": by_purpose.get("renewal_term", [])},
+        "validation_status": f.get("validation_status"),
+        "disclaimer": "ClauseClock does not send this notice. Verify these details "
+                      "against your original contract and send the notice yourself.",
+    }
+
+
+@api_router.post("/findings/{finding_id}/draft-notice")
+async def draft_notice(finding_id: str, user_id: str = Depends(current_user_id)):
+    """Generate a non-renewal notice draft from the confirmed finding +
+    validated sources only. ClauseClock does not send it."""
+    from models import Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    f = Finding.from_mongo(doc).model_dump()
+    if f.get("state") not in ("confirmed", "corrected"):
+        raise HTTPException(status_code=400, detail="Confirm the finding before drafting a notice.")
+    if f.get("validation_status") != "validated":
+        raise HTTPException(status_code=400, detail="Finding must be validated to draft a notice.")
+    draft = await analysis.draft_non_renewal_notice(f)
+    return {"draft": draft,
+            "disclaimer": "This is a draft only. ClauseClock does not send notices. "
+                          "Review, complete, and send it yourself, and verify the "
+                          "method, recipient and timing against your contract. "
+                          "This is not legal advice."}
+
+
 @api_router.get("/accuracy")
 async def accuracy(user_id: str = Depends(current_user_id)):
     """Operator instrumentation over stored findings. Not a learning system."""
