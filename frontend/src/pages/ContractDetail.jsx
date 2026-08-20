@@ -3,7 +3,7 @@
 // with location markers (inspectable, for extraction-quality testing).
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trash2, FileText, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import { Eyebrow } from "@/components/cc/Primitives";
+import { FindingCard } from "@/components/cc/FindingCard";
 import { CONTRACT_DETAIL } from "@/constants/testIds";
 
 const money = (v, cur) =>
@@ -32,14 +33,35 @@ export default function ContractDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [findings, setFindings] = useState([]);
+  const [status, setStatus] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState("");
 
   const load = useCallback(() => {
     api.get(`/contracts/${contractId}`)
       .then((r) => setData(r.data))
       .catch(() => setNotFound(true));
+    api.get(`/contracts/${contractId}/findings`)
+      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice")); setStatus(r.data.status); })
+      .catch(() => {});
   }, [contractId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const analyze = async () => {
+    setAnalyzing(true);
+    setAnalyzeError("");
+    try {
+      const { data: res } = await api.post(`/contracts/${contractId}/analyze`);
+      setFindings((res.findings || []).filter((f) => f.type === "renewal_notice"));
+      setStatus("analysed");
+    } catch (err) {
+      setAnalyzeError(err.response?.data?.detail || "Analysis failed. Try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const del = async () => {
     await api.delete(`/contracts/${contractId}`);
@@ -115,6 +137,43 @@ export default function ContractDetail() {
         ) : (
           <p className="cc-days-remaining mt-2">Not provided.</p>
         )}
+      </div>
+
+      {/* Renewal findings (Stage 2) */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <Eyebrow>What matters — renewals</Eyebrow>
+          {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
+            <Button onClick={analyze} disabled={analyzing} data-testid="analyze-button"
+              className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
+              <ScanSearch className="h-4 w-4" strokeWidth={2} />
+              {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find renewal deadlines"}
+            </Button>
+          )}
+        </div>
+        <div className="cc-seal-rule mt-4 mb-5" />
+
+        {analyzeError && <p className="cc-days-remaining text-stamp mb-4" data-testid="analyze-error">{analyzeError}</p>}
+
+        {findings.length === 0 && !analyzing && (
+          <div className="rounded-lg border border-rule bg-card px-6 py-8">
+            <p className="cc-plain-english text-ink-soft">
+              {status === "analysed"
+                ? "No renewal, term or notice language was found in this contract."
+                : "Run analysis to find renewal deadlines, notice periods and the clauses that prove them."}
+            </p>
+          </div>
+        )}
+
+        {analyzing && (
+          <div className="rounded-lg border border-rule bg-card px-6 py-8">
+            <p className="cc-days-remaining">Locating relevant clauses, then extracting and verifying each source…</p>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {findings.map((f) => <FindingCard key={f.id} finding={f} />)}
+        </div>
       </div>
 
       {/* Documents + extracted text */}

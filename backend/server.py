@@ -33,6 +33,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 import auth
 import ingestion
+import analysis
 from models import (COLLECTIONS, Contract, Document, User, utc_now_iso)
 
 mongo_url = os.environ["MONGO_URL"]
@@ -287,6 +288,42 @@ async def add_document(
         raise HTTPException(status_code=404, detail="Contract not found.")
     document = await _ingest_document(contract_id, user_id, file, doc_role)
     return {"document": document.model_dump()}
+
+
+@api_router.post("/contracts/{contract_id}/analyze")
+async def analyze_contract(contract_id: str, user_id: str = Depends(current_user_id)):
+    """Stage 2: run renewal_notice extraction over the contract's documents."""
+    oid = await _oid(user_id, contract_id)
+    contract = await db.contracts.find_one({"_id": oid, "user_id": user_id})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    readable = await db.documents.count_documents({
+        "contract_id": contract_id, "user_id": user_id,
+        "extraction_method": {"$ne": "failed_no_text"},
+    })
+    if readable == 0:
+        raise HTTPException(status_code=400,
+                            detail="No readable documents to analyse.")
+
+    findings = await analysis.run_renewal_analysis(db, contract, user_id)
+    await db.contracts.update_one(
+        {"_id": oid, "user_id": user_id},
+        {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
+    return {"findings": findings}
+
+
+@api_router.get("/contracts/{contract_id}/findings")
+async def list_findings(contract_id: str, user_id: str = Depends(current_user_id)):
+    oid = await _oid(user_id, contract_id)
+    contract = await db.contracts.find_one({"_id": oid, "user_id": user_id})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    from models import Finding
+    findings = []
+    async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
+        findings.append(Finding.from_mongo(f).model_dump())
+    return {"findings": findings, "status": contract.get("status")}
 
 
 @api_router.delete("/contracts/{contract_id}")
