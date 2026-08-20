@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ClauseClock design system — PART 5.
+  Applied from the first screen. Do not invent a visual style.
+
+  Two registers, deliberately contrasted:
+    - the summary is calm and human (Archivo, paper/ink)
+    - the evidence is verbatim and documentary (IBM Plex Mono, --document ground)
+*/
+
+@layer base {
+  :root {
+    /* 5.2 Palette — paper, ink, date stamps, certified-mail green */
+    --paper: #FAFAF8;        /* page ground */
+    --card: #FFFFFF;         /* surfaces */
+    --document: #F4F2EC;     /* verbatim clause ground (reads as paper stock) */
+    --ink: #1A1D21;          /* headings, dates, primary text */
+    --ink-soft: #545A62;     /* body, secondary */
+    --rule: #E4E2DB;         /* borders, dividers */
+    --seal: #1F6B4A;         /* confirmed, protected, done (certified-mail green) */
+    --stamp: #B3411F;        /* under 14 days AND action required — ONLY here */
+    --pending: #8A6410;      /* 15–60 days, needs review */
+
+    /* shadcn tokens mapped onto the ClauseClock palette so UI primitives
+       (buttons, dialogs, inputs) inherit the register automatically. */
+    --background: 60 20% 98%;      /* paper */
+    --foreground: 210 11% 12%;     /* ink */
+    --card-foreground: 210 11% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 12%;
+    --primary: 210 11% 12%;        /* ink */
+    --primary-foreground: 60 20% 98%;
+    --secondary: 48 21% 94%;       /* document */
+    --secondary-foreground: 210 11% 12%;
+    --muted: 48 21% 94%;
+    --muted-foreground: 213 7% 36%; /* ink-soft */
+    --accent: 152 55% 27%;         /* seal */
+    --accent-foreground: 60 20% 98%;
+    --destructive: 13 71% 41%;     /* stamp */
+    --destructive-foreground: 60 20% 98%;
+    --border: 47 18% 87%;          /* rule */
+    --input: 47 18% 87%;
+    --ring: 152 55% 27%;           /* seal */
+    --radius: 0.375rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    background-color: var(--paper);
+  }
+  body {
+    margin: 0;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "tnum" 1; /* tabular figures for dates and money */
+  }
+
+  /* 5.8 Quality floor — visible keyboard focus */
+  :focus-visible {
+    outline: 2px solid var(--seal);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgba(31, 107, 74, 0.16);
+  }
+}
+
+/* 5.3 Type roles ------------------------------------------------------- */
+@layer components {
+  .cc-eyebrow {
+    font-family: "Archivo", sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* hero date — Archivo Expanded 700 / 56px / -0.02em / uppercase */
+  .cc-hero-date {
+    font-family: "Archivo Expanded", "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: 56px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cc-days-remaining {
+    font-family: "Archivo", sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cc-finding-title {
+    font-family: "Archivo", sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    color: var(--ink);
+  }
+
+  .cc-plain-english {
+    font-family: "Archivo", sans-serif;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  .cc-money {
+    font-family: "Archivo", sans-serif;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  /* verbatim clause text — IBM Plex Mono only. Signals: document, untouched. */
+  .cc-clause {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+
+  .cc-section-ref {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* the seal rule above the calm state (5.5) */
+  .cc-seal-rule {
+    height: 3px;
+    width: 44px;
+    background: var(--seal);
+    border-radius: 2px;
+  }
+}
+
+@layer base {
+  [data-debug-wrapper="true"] {
+    display: contents !important;
+  }
+}
