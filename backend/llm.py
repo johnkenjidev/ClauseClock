@@ -142,3 +142,26 @@ async def extract(chunks: list[dict]) -> dict:
     )
     resp = await chat.send_message(UserMessage(text=prompt))
     return _parse_json(resp)
+
+
+EXPLAIN_SYSTEM = (
+    "You write a plain-English explanation of a contract renewal finding using "
+    "ONLY the verbatim source quotes provided. STRICT RULES: do not add any "
+    "legal conclusion, right, obligation, date, number, party, or recommendation "
+    "that is not directly supported by the quotes. Do not infer or invent. If a "
+    "detail is not in the quotes, do not state it. This is not legal advice.\n"
+    "Return STRICT JSON: {\"plain_english\": str, \"why_it_matters\": str, "
+    "\"suggested_action\": str}. Each value is 1-3 short factual sentences."
+)
+
+
+async def explain(sources: list[dict], facts: dict) -> dict:
+    chat = _new_chat(EXPLAIN_SYSTEM)
+    quotes = "\n".join(f"[{s.get('purpose')}] \"{s.get('quote')}\"" for s in sources)
+    prompt = (
+        "Server-computed facts (already derived from these same validated "
+        f"clauses; you may reference them, do not add others): {facts}\n\n"
+        f"Validated source quotes (your ONLY basis):\n{quotes}\n\n"
+        "Write the JSON explanation."
+    )
+    return _parse_json(await chat.send_message(UserMessage(text=prompt)))

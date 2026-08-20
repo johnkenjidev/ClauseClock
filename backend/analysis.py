@@ -19,6 +19,7 @@ import re
 from datetime import date, datetime, timedelta
 
 import numpy as np
+from bson import ObjectId
 from dateutil.relativedelta import relativedelta
 
 import llm
@@ -313,6 +314,93 @@ def recompute_derived(edits: dict, today: date = None) -> dict:
 
 
 
+
+
+# --------------------------------------------------------------------------
+# Stage 4 — deterministic ranking + provenance-bound explanations
+# --------------------------------------------------------------------------
+def compute_rank(finding: dict, today: date = None):
+    """Deterministic rank from normalized data. Time-dependent (days_remaining)
+    so it is refreshed on read. Returns (score, category, basis, days_remaining)."""
+    today = today or date.today()
+    e = finding.get("extracted", {}) or {}
+    vs = finding.get("validation_status")
+    action = bool(finding.get("action_required"))
+    money = finding.get("money_amount")
+    days = None
+    dl = e.get("effective_action_deadline")
+    if vs == "validated" and dl:
+        try:
+            days = (datetime.strptime(dl, "%Y-%m-%d").date() - today).days
+        except (ValueError, TypeError):
+            days = e.get("days_remaining")
+
+    score = 0
+    if vs == "validated":
+        score += 1_000_000
+    if action:
+        score += 100_000
+    if days is not None:
+        score += max(0, 100_000 - days * 100)
+    if money is not None:
+        score += min(int(money), 100_000)
+
+    if action and days is not None and days <= 30:
+        cat = "urgent"
+    elif action:
+        cat = "risk"
+    elif finding.get("money_kind") == "saving_opportunity":
+        cat = "opportunity"
+    elif money is not None:
+        cat = "money"
+    else:
+        cat = "informational"
+
+    basis = {"as_of_date": today.isoformat(), "days_remaining": days,
+             "action_required": action, "money_amount": money,
+             "validation_status": vs}
+    return score, cat, basis, days
+
+
+def apply_ranking(findings: list[dict], today: date = None) -> list[dict]:
+    """Recompute rank (and refresh days_remaining) for each finding, then sort
+    by rank_score descending. Pure read-time computation."""
+    today = today or date.today()
+    for f in findings:
+        score, cat, basis, days = compute_rank(f, today)
+        f["rank_score"] = score
+        f["rank_category"] = cat
+        f["rank_basis"] = basis
+        if f.get("extracted") is not None and basis["validation_status"] == "validated":
+            f["extracted"]["days_remaining"] = days
+    return sorted(findings, key=lambda x: x.get("rank_score", 0), reverse=True)
+
+
+async def generate_explanation(db, finding: dict, user_id: str) -> dict:
+    """Generate plain_english / why_it_matters / suggested_action ONLY from the
+    finding's validated source quotes, and cache them. Never for needs_review."""
+    from models import utc_now_iso
+    if finding.get("validation_status") != "validated" or not finding.get("sources"):
+        return finding
+    facts = {k: (finding.get("extracted") or {}).get(k) for k in (
+        "next_renewal_date", "effective_action_deadline", "notice_days_min",
+        "notice_days_max", "notice_basis", "renewal_type")}
+    try:
+        ex = await llm.explain(finding["sources"], facts)
+    except Exception:
+        return finding
+    upd = {
+        "plain_english": ex.get("plain_english"),
+        "why_it_matters": ex.get("why_it_matters"),
+        "suggested_action": ex.get("suggested_action"),
+        "explanation_generated_at": utc_now_iso(),
+    }
+    await db.findings.update_one(
+        {"_id": ObjectId(finding["id"]), "user_id": user_id}, {"$set": upd})
+    finding.update(upd)
+    return finding
+
+
 async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
     """Orchestrate the pipeline and persist renewal_notice finding(s).
     Returns (findings, warnings)."""
@@ -454,4 +542,7 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
     )
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)
-    return [finding.model_dump()], []
+    fd = finding.model_dump()
+    if validation_status == "validated":
+        fd = await generate_explanation(db, fd, user_id)
+    return [fd], []

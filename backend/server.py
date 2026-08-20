@@ -308,6 +308,7 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
                             detail="No readable documents to analyse.")
 
     findings, warnings = await analysis.run_renewal_analysis(db, contract, user_id)
+    findings = analysis.apply_ranking(findings)
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
@@ -324,6 +325,7 @@ async def list_findings(contract_id: str, user_id: str = Depends(current_user_id
     findings = []
     async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
         findings.append(Finding.from_mongo(f).model_dump())
+    findings = analysis.apply_ranking(findings)  # refresh time-dependent rank on read
     return {"findings": findings, "status": contract.get("status")}
 
 
@@ -451,10 +453,21 @@ async def correct_finding(finding_id: str, body: CorrectionInput,
     prior_corrected = doc.get("corrected_fields", []) or []
     update["corrected_fields"] = sorted(set(prior_corrected) | set(changed))
 
+    # Explanations are only for validated findings and are derived from the
+    # (unchanged) validated sources. Clear on needs_review; regenerate on validated.
+    if recomputed["validation_status"] != "validated":
+        update["plain_english"] = None
+        update["why_it_matters"] = None
+        update["suggested_action"] = None
+        update["explanation_generated_at"] = None
+
     await db.findings.update_one({"_id": oid, "user_id": user_id}, {"$set": update})
-    return {"finding": Finding.from_mongo(
-        await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump(),
-        "changed_fields": changed}
+    updated = await db.findings.find_one({"_id": oid, "user_id": user_id})
+    fd = Finding.from_mongo(updated).model_dump()
+    if fd.get("validation_status") == "validated":
+        fd = await analysis.generate_explanation(db, fd, user_id)
+    fd = analysis.apply_ranking([fd])[0]
+    return {"finding": fd, "changed_fields": changed}
 
 
 @api_router.post("/findings/{finding_id}/dismiss")

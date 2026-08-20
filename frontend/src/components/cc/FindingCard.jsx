@@ -56,8 +56,12 @@ function tone(f) {
 }
 const TONE_TEXT = { stamp: "text-stamp", pending: "text-pending", neutral: "text-ink" };
 const TONE_RULE = { stamp: "bg-stamp", pending: "bg-pending", neutral: "bg-seal" };
+const RANK_LABEL = {
+  urgent: "Urgent", money: "Money", risk: "Risk",
+  opportunity: "Opportunity", informational: "Informational",
+};
 
-export function FindingCard({ finding, onChanged }) {
+export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -97,6 +101,12 @@ export function FindingCard({ finding, onChanged }) {
         <div className="flex items-start justify-between gap-6">
           <div>
             <p className="cc-eyebrow">Automatic renewal</p>
+            {finding.rank_category && (
+              <span data-testid="finding-rank-category"
+                className="inline-block cc-eyebrow mt-1 text-ink-soft">
+                {RANK_LABEL[finding.rank_category]}
+              </span>
+            )}
             {needsReview ? (
               <>
                 <p className={`cc-hero-date mt-3 ${TONE_TEXT[t]}`} data-testid="finding-needs-review">
@@ -162,7 +172,32 @@ export function FindingCard({ finding, onChanged }) {
           </ul>
         )}
 
+        {/* Stage 4 explanation — derived ONLY from the validated clauses below.
+            Never shown for needs_review; the clause drawer remains the evidence. */}
+        {!needsReview && finding.plain_english && (
+          <div className="mt-6 rounded-md border border-rule bg-card p-5" data-testid="finding-explanation">
+            <p className="cc-eyebrow">In plain English</p>
+            <p className="cc-plain-english mt-2" data-testid="finding-plain-english">{finding.plain_english}</p>
+            {finding.why_it_matters && (
+              <>
+                <p className="cc-eyebrow mt-4">Why it matters</p>
+                <p className="cc-plain-english mt-2" data-testid="finding-why">{finding.why_it_matters}</p>
+              </>
+            )}
+            {finding.suggested_action && (
+              <>
+                <p className="cc-eyebrow mt-4">Suggested action</p>
+                <p className="cc-plain-english mt-2" data-testid="finding-suggested-action">{finding.suggested_action}</p>
+              </>
+            )}
+            <p className="cc-section-ref mt-4 text-ink-soft">
+              Summarised from the cited clauses below — verify against the original contract.
+            </p>
+          </div>
+        )}
+
         {/* Stage 3 actions: Confirm / Correct / Dismiss */}
+        {!readOnly && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
             onClick={() => act("confirm")}
@@ -180,6 +215,7 @@ export function FindingCard({ finding, onChanged }) {
             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
           </Button>
         </div>
+        )}
 
         {/* Clause drawer toggle */}
         <button

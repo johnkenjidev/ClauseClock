@@ -1,0 +1,25 @@
+{
+  "summary": "Stage 4 (What Matters — ranking + provenance-bound explanations) tested end-to-end on the public HTTPS base. Wrote /app/backend/tests/test_clauseclock_stage4.py (7 tests, all PASS) covering ranking reproducibility & determinism, days_remaining read-time refresh, rank ordering + category assignment (urgent/risk/money/informational), needs_review suppression of explanations, correct-flow explanation generation + cache-clear on regression to needs_review, no-change correct no-op preserving cached explanation, cross-user 404 isolation, and sources-preserved-alongside-explanation invariant. Also ran the closest Stage 3 regression suite: 14/14 PASS. Frontend verified via Playwright on ContractDetail: findings render in ranked order (validated urgent above needs_review), finding-rank-category tag rendered ('Urgent' / 'Risk'), finding-explanation block present ONLY for the validated card with plain_english / why_it_matters / suggested_action, needs_review card shows 'NEEDS REVIEW' and no explanation block, and the clause-drawer-toggle -> clause-drawer still exposes verbatim quotes (evidence remains primary). Real Claude call on correct-to-validated returned a JSON explanation grounded in the supplied source quotes / server-computed facts.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_stage4.py",
+    "/app/test_reports/pytest/stage4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "compute_rank: money score is uncapped by category — a huge annual_value can outrank a near-deadline validated finding within the 'validated' tier because both action-required and money contribute to the same score. Consider clamping money contribution below the days-remaining contribution, or scoring urgent > risk > money tier-first.",
+    "compute_rank falls back to extracted.days_remaining only if strptime fails; for a validated finding without an effective_action_deadline (e.g. money-only with renewal_type='manual'), days is None and the finding gets no time-urgency score — expected, but callers should be aware this yields category='money' regardless of when renewal is.",
+    "generate_explanation swallows all llm.explain exceptions silently (`except Exception: return finding`); on transient LLM failure the finding stays validated with null explanation and NO explanation_generated_at, so it will silently re-attempt on every subsequent correct/analyze — fine, but consider logging or a retry counter.",
+    "apply_ranking mutates findings in-place before returning the sorted list; caller in server.list_findings passes newly-materialized dicts, so this is safe today, but future callers reusing the input list should be aware.",
+    "Frontend ContractDetail.load() ignores findings-endpoint 404 (`.catch(() => {})`) — user-facing behavior is 'no findings shown' which is correct given cross-user isolation, but hides genuine errors. Consider surfacing a subtle error state."
+  ],
+  "updated_files": ["/app/backend/tests/test_clauseclock_stage4.py"],
+  "success_rate": {"backend": "100% (21/21 across Stage 3+4)", "frontend": "100% (Stage 4 UI checks)"},
+  "test_credentials": "Seeded users of pattern t4_*@example.com and t4ui_*@example.com created and CLEANED UP after tests. Preserved test@clauseclock.app / Test1234! untouched.",
+  "seed_data_creation": "Direct pymongo seeding of contracts + renewal_notice findings under freshly-registered @example.com users (Stage 3 pattern). All seeded data deleted in fixture teardown and post-run cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stage 4 backend tests live at /app/backend/tests/test_clauseclock_stage4.py. Run with `set -a && . backend/.env && . frontend/.env && set +a && python -m pytest backend/tests/test_clauseclock_stage4.py -v -o 'addopts=' --junitxml=/app/test_reports/pytest/stage4_results.xml`. The `-o 'addopts='` override is required because backend/pytest.ini injects xdist flags that fail single-file collection under the current runner. One test (test_correct_to_validated_generates_and_regress_clears) makes a real Claude call (~5-30s). All tests self-clean via module-scoped fixtures.",
+  "rca of the issue": "N/A — no defects surfaced."
+}
