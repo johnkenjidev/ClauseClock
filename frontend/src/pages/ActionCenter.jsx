@@ -144,6 +144,57 @@ function EvidenceBlock({ action, onChanged }) {
   );
 }
 
+function OutcomeForm({ findingId }) {
+  const [form, setForm] = useState({ result: "reviewed_and_kept", confirmed: false, amount_recovered: "", currency: "USD", notes: "" });
+  const [outcomes, setOutcomes] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const load = () => api.get(`/findings/${findingId}/outcomes`).then((r) => setOutcomes(r.data.outcomes)).catch(() => {});
+  useEffect(() => { load(); }, [findingId]);
+
+  const save = async () => {
+    setBusy(true);
+    const payload = { result: form.result, confirmed: form.confirmed, notes: form.notes || null,
+      currency: form.currency || null,
+      amount_recovered: form.amount_recovered ? parseFloat(form.amount_recovered) : null };
+    try { await api.post(`/findings/${findingId}/outcomes`, payload); setForm({ result: "reviewed_and_kept", confirmed: false, amount_recovered: "", currency: "USD", notes: "" }); load(); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="pt-4 border-t border-rule" data-testid="outcome-form">
+      <Eyebrow>Record outcome</Eyebrow>
+      <div className="grid grid-cols-2 gap-3 mt-3">
+        <select data-testid="outcome-result" value={form.result} onChange={(e) => set("result", e.target.value)}
+          className="bg-card border border-rule rounded-md h-9 px-2 cc-days-remaining col-span-2">
+          {["terminated","renegotiated","credit_received","dispute_resolved","reviewed_and_kept","missed"].map((o) =>
+            <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
+        </select>
+        <Input data-testid="outcome-amount" placeholder="Value (optional)" value={form.amount_recovered} onChange={(e) => set("amount_recovered", e.target.value)} className="bg-card border-rule h-9" />
+        <Input data-testid="outcome-currency" placeholder="USD" value={form.currency} onChange={(e) => set("currency", e.target.value)} className="bg-card border-rule h-9" />
+        <Input data-testid="outcome-notes" placeholder="Optional notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} className="bg-card border-rule h-9 col-span-2" />
+        <label className="flex items-center gap-2 cc-days-remaining col-span-2">
+          <input type="checkbox" data-testid="outcome-confirmed" checked={form.confirmed} onChange={(e) => set("confirmed", e.target.checked)} /> Confirmed
+        </label>
+      </div>
+      <Button onClick={save} disabled={busy} data-testid="outcome-save"
+        className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 mt-3">{busy ? "Saving…" : "Record outcome"}</Button>
+      {outcomes.length > 0 && (
+        <ul className="mt-3 space-y-2" data-testid="outcome-list">
+          {outcomes.map((o) => (
+            <li key={o.id} className="rounded-md border border-rule bg-card px-4 py-2">
+              <p className="cc-finding-title text-[15px]">{o.result.replace(/_/g, " ")}{o.confirmed ? " · confirmed" : ""}</p>
+              <p className="cc-days-remaining mt-0.5">
+                {o.amount_recovered != null ? `${o.currency || ""} ${o.amount_recovered}` : ""}{o.notes ? ` · ${o.notes}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ChecklistDialog({ item, open, onOpenChange }) {
   const [checklist, setChecklist] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -211,6 +262,7 @@ function ChecklistDialog({ item, open, onOpenChange }) {
             </div>
 
             <LogActionForm findingId={item.id} contractMethod={checklist.method.value} />
+            <OutcomeForm findingId={item.id} />
           </div>
         )}
       </DialogContent>

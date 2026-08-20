@@ -313,6 +313,31 @@ def recompute_derived(edits: dict, today: date = None) -> dict:
     }
 
 
+# --------------------------------------------------------------------------
+# Stage 6C2 — value accounting
+# --------------------------------------------------------------------------
+def outcome_protected_value(outcome: dict) -> float:
+    """Value protected/recovered by a single recorded outcome.
+
+    Rules (server-side, deterministic; never annualized beyond what happened):
+      - terminated / avoided renewal -> only the value of the avoided next term
+        (`term_value_avoided`); do NOT annualize beyond it.
+      - renegotiated -> the confirmed annual savings/delta
+        (`renegotiated_annual_delta`), NOT the full contract value.
+      - credit_received / dispute_resolved -> `amount_recovered`.
+      - reviewed_and_kept -> $0 (a valid, non-failure outcome).
+      - missed -> $0.
+    """
+    result = outcome.get("result")
+    if result == "terminated":
+        return float(outcome.get("term_value_avoided") or 0.0)
+    if result == "renegotiated":
+        return float(outcome.get("renegotiated_annual_delta") or 0.0)
+    if result in ("credit_received", "dispute_resolved"):
+        return float(outcome.get("amount_recovered") or 0.0)
+    return 0.0  # reviewed_and_kept, missed
+
+
 
 
 

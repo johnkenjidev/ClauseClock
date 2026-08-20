@@ -681,6 +681,57 @@ async def download_evidence(action_id: str, index: int,
                         headers={"Content-Disposition": f'inline; filename="{meta.get("filename","evidence")}"'})
 
 
+class OutcomeInput(BaseModel):
+    result: str
+    confirmed: bool = False
+    amount_recovered: Optional[float] = None
+    renegotiated_annual_delta: Optional[float] = None
+    term_value_avoided: Optional[float] = None
+    currency: Optional[str] = None
+    notes: Optional[str] = None
+
+    @field_validator("result")
+    @classmethod
+    def _valid_result(cls, v):
+        if v not in ("terminated", "renegotiated", "credit_received",
+                     "dispute_resolved", "reviewed_and_kept", "missed"):
+            raise ValueError("invalid outcome result")
+        return v
+
+
+@api_router.post("/findings/{finding_id}/outcomes")
+async def record_outcome(finding_id: str, body: OutcomeInput,
+                         user_id: str = Depends(current_user_id)):
+    from models import Outcome, Finding
+    oid, doc = await _get_finding(finding_id, user_id)
+    f = Finding.from_mongo(doc)
+    outcome = Outcome(
+        finding_id=finding_id, contract_id=f.contract_id, user_id=user_id,
+        result=body.result, confirmed=body.confirmed,
+        amount_recovered=body.amount_recovered,
+        renegotiated_annual_delta=body.renegotiated_annual_delta,
+        term_value_avoided=body.term_value_avoided,
+        notes=body.notes,
+    )
+    data = outcome.to_mongo()
+    if body.currency:
+        data["currency"] = body.currency  # optional, alongside existing fields
+    result = await db.outcomes.insert_one(data)
+    saved = await db.outcomes.find_one({"_id": result.inserted_id})
+    return {"outcome": {**Outcome.from_mongo(saved).model_dump(),
+                        "currency": saved.get("currency")}}
+
+
+@api_router.get("/findings/{finding_id}/outcomes")
+async def list_outcomes(finding_id: str, user_id: str = Depends(current_user_id)):
+    from models import Outcome
+    await _get_finding(finding_id, user_id)
+    outcomes = []
+    async for o in db.outcomes.find({"finding_id": finding_id, "user_id": user_id}).sort("recorded_at", -1):
+        outcomes.append({**Outcome.from_mongo(o).model_dump(), "currency": o.get("currency")})
+    return {"outcomes": outcomes}
+
+
 @api_router.get("/accuracy")
 async def accuracy(user_id: str = Depends(current_user_id)):
     """Operator instrumentation over stored findings. Not a learning system."""
@@ -712,6 +763,56 @@ async def accuracy(user_id: str = Depends(current_user_id)):
             sorted(field_freq.items(), key=lambda x: (-x[1], x[0]))),
         "by_type": by_type,
     }
+
+
+@api_router.get("/dashboard/summary")
+async def dashboard_summary(user_id: str = Depends(current_user_id)):
+    """Stage 6C2 — value accounting for the dashboard (user-scoped).
+
+    Headline protected/recovered value counts CONFIRMED outcomes only. Pending
+    value is recorded-but-unconfirmed outcomes. All per-outcome value follows
+    analysis.outcome_protected_value (no annualizing a terminated term, only the
+    confirmed renegotiation delta, reviewed_and_kept protects $0)."""
+    contracts = [c async for c in db.contracts.find({"user_id": user_id})]
+    contracts_monitored = len(contracts)
+    value_under_tracking = sum(float(c.get("annual_value") or 0.0) for c in contracts)
+    currency = next((c.get("currency") for c in contracts if c.get("currency")), None) or "USD"
+
+    confirmed_value_protected = 0.0
+    pending_value = 0.0
+    windows_missed = 0
+    outcomes_recorded = 0
+    breakdown: dict = {}
+    async for o in db.outcomes.find({"user_id": user_id}):
+        outcomes_recorded += 1
+        result = o.get("result")
+        val = analysis.outcome_protected_value(o)
+        b = breakdown.setdefault(
+            result, {"count": 0, "confirmed_count": 0, "confirmed_value": 0.0})
+        b["count"] += 1
+        if o.get("confirmed"):
+            b["confirmed_count"] += 1
+            b["confirmed_value"] += val
+            confirmed_value_protected += val
+        else:
+            pending_value += val
+        if result == "missed":
+            windows_missed += 1
+        if o.get("currency"):
+            currency = o.get("currency")
+
+    return {
+        "contracts_monitored": contracts_monitored,
+        "value_under_tracking": value_under_tracking,
+        "confirmed_value_protected": confirmed_value_protected,
+        "pending_value": pending_value,
+        "windows_missed": windows_missed,
+        "outcomes_recorded": outcomes_recorded,
+        "currency": currency,
+        "by_result": breakdown,
+    }
+
+
 
 
 @api_router.delete("/contracts/{contract_id}")

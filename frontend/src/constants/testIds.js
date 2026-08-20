@@ -11,6 +11,12 @@ export const DASHBOARD = {
   root: "dashboard-page",
   emptyAddContract: "dashboard-empty-add-contract",
   emptySample: "dashboard-empty-sample",
+  metrics: "dashboard-metrics",
+  contractsMonitored: "dashboard-contracts-monitored",
+  valueUnderTracking: "dashboard-value-under-tracking",
+  confirmedValueProtected: "dashboard-confirmed-value-protected",
+  pendingValue: "dashboard-pending-value",
+  windowsMissed: "dashboard-windows-missed",
 };
 
 export const CONTRACTS = {

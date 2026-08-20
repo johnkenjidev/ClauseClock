@@ -79,3 +79,20 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
+
+### Stage 6C2 — value accounting + dashboard (2026-06)
+- analysis.outcome_protected_value: deterministic per-outcome value.
+  terminated -> term_value_avoided (avoided next term only, never annualized);
+  renegotiated -> renegotiated_annual_delta (confirmed annual saving, not full
+  contract value); credit_received/dispute_resolved -> amount_recovered;
+  reviewed_and_kept -> $0 (valid, non-failure); missed -> $0.
+- GET /api/dashboard/summary (user-scoped): contracts_monitored,
+  value_under_tracking (sum annual_value), confirmed_value_protected (CONFIRMED
+  outcomes only = headline), pending_value (unconfirmed outcomes),
+  windows_missed (result=missed), outcomes_recorded, currency, by_result.
+- Dashboard.jsx: headline "Confirmed value protected & recovered" + 4 stat cards
+  (contracts monitored, value under tracking, pending value, windows missed).
+  Empty state unchanged when no contracts. Uses existing Part 5 components.
+- Focused check: tests/check_stage6c2.py (known set -> confirmed 57000, pending
+  9000, missed 1) PASS. Live endpoint verified. No reminders / new extraction
+  types added (explicitly out of scope for 6C2).
