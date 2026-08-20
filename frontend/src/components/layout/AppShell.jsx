@@ -1,11 +1,12 @@
 // AppShell — the three-destination layout (PART 5.6): Dashboard · Contracts ·
 // Action Center, plus one primary action, Add contract. No sidebar.
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Clock8, Plus } from "lucide-react";
+import { Clock8, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NAV } from "@/constants/testIds";
 import { LegalFooter } from "@/components/cc/Primitives";
+import { useAuth } from "@/context/AuthContext";
 
 const navItem = ({ isActive }) =>
   cn(
@@ -17,6 +18,7 @@ const navItem = ({ isActive }) =>
 
 export const AppShell = ({ demo = false }) => {
   const navigate = useNavigate();
+  const auth = useAuth();
   const base = demo ? "/demo" : "/app";
 
   return (
@@ -70,6 +72,19 @@ export const AppShell = ({ demo = false }) => {
                   <Plus className="h-4 w-4" strokeWidth={2.5} />
                   Add contract
                 </Button>
+              )}
+              {!demo && auth?.user && (
+                <button
+                  data-testid="nav-logout"
+                  onClick={async () => {
+                    await auth.logout();
+                    navigate("/login");
+                  }}
+                  className="cc-eyebrow text-ink-soft hover:text-ink transition-colors flex items-center gap-1.5"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={2} />
+                </button>
               )}
             </nav>
           </div>

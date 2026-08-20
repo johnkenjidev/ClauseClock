@@ -1,0 +1,25 @@
+{
+  "summary": "ClauseClock Stage 1 backend + frontend testing complete. 11/11 pytest tests pass covering auth (register/login/me/logout, 401 without session), cross-user isolation (404 on foreign contract GET/DELETE, list scoping), user_id from client ignored, PDF ingestion (pdfplumber, Page markers, sha256, size, page_count, doc_role primary), DOCX ingestion (python-docx, § and ¶ markers), annual-value provenance (user_entered with all quote/document/location/offset null; null when omitted), scanned-PDF detection (blank PDF -> extraction_method=failed_no_text with exact scanned message), contract detail returns documents with raw_text, and hard deletion verified end-to-end including GridFS fs.files count returns to baseline. Frontend E2E flow verified: login at /login with seeded creds -> /app -> /app/upload -> submit PDF form -> lands on /app/contracts/{id} -> extracted text visible via document-rawtext testid containing 'Page' markers -> annual value $24,000 shown -> Delete + confirm -> returns to /app/contracts empty list.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_clauseclock_stage1.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: TEST_USER credentials are hardcoded — acceptable for Stage 1 seed but consider moving to env for later stages.",
+    "get_current_user only checks access_token cookie/Bearer; no refresh token rotation route implemented. Users get hard 401 after 12h with no auto-refresh path.",
+    "delete_contract cascades findings/actions/outcomes/reminders which are not created in Stage 1 — safe pre-wiring for later stages.",
+    "CORS: allow_origin_regex covers preview domains; allow_credentials=True works with samesite=none cookies. Good.",
+    "_oid signature takes unused user_id param — minor cleanup."
+  ],
+  "updated_files": ["/app/backend/tests/test_clauseclock_stage1.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "test@clauseclock.app / Test1234! (seeded on startup)",
+  "seed_data_creation": "None persisted — all test artifacts prefixed TEST_ are deleted at end of each test",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stage 1 ingestion is solid. Backend tests live at /app/backend/tests/test_clauseclock_stage1.py using pytest-xdist loadscope. Auth uses httpOnly cookies (samesite=none, secure) — always use requests.Session or set withCredentials. GridFS collections are fs.files/fs.chunks; hard delete removes them. For UI file uploads, upload-file-input is hidden — use page.set_input_files with state='attached' (not visible).",
+  "rca of the issue": "N/A — no issues found."
+}

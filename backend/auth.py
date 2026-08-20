@@ -1,35 +1,77 @@
 """
-Auth foundation — Prompt 0 stub.
+Auth foundation — Stage 1.
 
-Real authentication (JWT signup/login) is a later stage. For now this module
-establishes the single, non-negotiable rule the whole architecture depends on:
+Working email/password authentication using JWT access/refresh tokens carried
+in httpOnly cookies (a server-side authenticated session).
 
-    user_id is ALWAYS derived server-side and NEVER accepted from the client.
+    user_id is ALWAYS derived server-side from the verified token and NEVER
+    accepted from the client (body, query, form or custom header).
 
-`get_current_user_id` is the one dependency every scoped endpoint will use.
-It currently resolves a fixed stub identity so the isolation pattern is wired
-from day one; swapping in JWT/session verification later changes only this
-function, not the call sites.
+Passwords are hashed with bcrypt. This module holds pure helpers; the
+`get_current_user` FastAPI dependency lives in server.py where the db handle
+is available.
 """
 
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import os
+from datetime import datetime, timedelta, timezone
 
-# Stub identity used until real auth lands. Not client-controllable.
-STUB_USER_ID = "000000000000000000000000"
+import bcrypt
+import jwt
 
-# auto_error=False so the stub works without a token during Prompt 0.
-_bearer = HTTPBearer(auto_error=False)
+JWT_ALGORITHM = "HS256"
+ACCESS_TTL_MIN = 60 * 12          # 12h access window
+REFRESH_TTL_DAYS = 7
 
 
-async def get_current_user_id(
-    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> str:
-    """
-    Return the authenticated user's id.
+def get_jwt_secret() -> str:
+    return os.environ["JWT_SECRET"]
 
-    Prompt 0: returns a fixed stub id. The client can never supply or override
-    this value — that guarantee is the point of routing every query through
-    this dependency.
-    """
-    return STUB_USER_ID
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+def create_access_token(user_id: str, email: str) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "type": "access",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TTL_MIN),
+    }
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: str) -> str:
+    payload = {
+        "sub": user_id,
+        "type": "refresh",
+        "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TTL_DAYS),
+    }
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    return jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+
+
+def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
+    response.set_cookie(
+        key="access_token", value=access_token, httponly=True, secure=True,
+        samesite="none", max_age=ACCESS_TTL_MIN * 60, path="/",
+    )
+    response.set_cookie(
+        key="refresh_token", value=refresh_token, httponly=True, secure=True,
+        samesite="none", max_age=REFRESH_TTL_DAYS * 86400, path="/",
+    )
+
+
+def clear_auth_cookies(response) -> None:
+    response.delete_cookie("access_token", path="/", samesite="none", secure=True)
+    response.delete_cookie("refresh_token", path="/", samesite="none", secure=True)

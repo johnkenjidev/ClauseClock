@@ -1,6 +1,9 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppShell } from "@/components/layout/AppShell";
+import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Contracts from "@/pages/Contracts";
 import ContractDetail from "@/pages/ContractDetail";
@@ -12,32 +15,45 @@ import Demo from "@/pages/Demo";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* /app — authenticated workspace shell */}
-        <Route path="/app" element={<AppShell />}>
-          <Route index element={<Dashboard />} />
-          <Route path="contracts" element={<Contracts />} />
-          <Route path="contracts/:contractId" element={<ContractDetail />} />
-          <Route path="findings/:findingId" element={<FindingDetail />} />
-          <Route path="actions" element={<ActionCenter />} />
-          <Route path="upload" element={<Upload />} />
-        </Route>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Auth */}
+          <Route path="/login" element={<Auth mode="login" />} />
+          <Route path="/signup" element={<Auth mode="signup" />} />
 
-        {/* /demo — no auth, read-only synthetic workspace shell (PART 5.9) */}
-        <Route path="/demo" element={<AppShell demo />}>
-          <Route index element={<Demo />} />
-          <Route path="contracts" element={<Contracts />} />
-          <Route path="actions" element={<ActionCenter />} />
-        </Route>
+          {/* /app — authenticated workspace */}
+          <Route
+            path="/app"
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="contracts" element={<Contracts />} />
+            <Route path="contracts/:contractId" element={<ContractDetail />} />
+            <Route path="findings/:findingId" element={<FindingDetail />} />
+            <Route path="actions" element={<ActionCenter />} />
+            <Route path="upload" element={<Upload />} />
+          </Route>
 
-        {/* /accuracy — internal operator instrumentation */}
-        <Route path="/accuracy" element={<Accuracy />} />
+          {/* /demo — no auth, read-only synthetic workspace shell (PART 5.9) */}
+          <Route path="/demo" element={<AppShell demo />}>
+            <Route index element={<Demo />} />
+            <Route path="contracts" element={<Demo />} />
+            <Route path="actions" element={<Demo />} />
+          </Route>
 
-        <Route path="/" element={<Navigate to="/app" replace />} />
-        <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* /accuracy — internal operator instrumentation */}
+          <Route path="/accuracy" element={<Accuracy />} />
+
+          <Route path="/" element={<Navigate to="/app" replace />} />
+          <Route path="*" element={<Navigate to="/app" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

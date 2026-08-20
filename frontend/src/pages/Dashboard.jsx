@@ -28,10 +28,10 @@ export default function Dashboard() {
         <Button
           variant="outline"
           data-testid={DASHBOARD.emptySample}
-          onClick={() => navigate("/demo")}
+          onClick={() => navigate("/app/contracts")}
           className="rounded-full h-11 px-6 border-rule text-ink hover:bg-document"
         >
-          See a sample workspace
+          View your contracts
         </Button>
       </div>
 
