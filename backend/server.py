@@ -485,6 +485,8 @@ class TerminationCorrectionInput(BaseModel):
     min_term_value: Optional[int] = None
     min_term_unit: Optional[str] = None
     earliest_termination_date: Optional[str] = None
+    cure_period_value: Optional[int] = None
+    cure_period_unit: Optional[str] = None
     termination_fee_stated: Optional[bool] = None
     termination_fee_amount: Optional[float] = None
     termination_fee_percent: Optional[float] = None
@@ -513,6 +515,20 @@ class TerminationCorrectionInput(BaseModel):
             raise ValueError("unit must be days/months/years")
         return v
 
+    @field_validator("cure_period_unit")
+    @classmethod
+    def _valid_cure_unit(cls, v):
+        if v not in _UNITS:
+            raise ValueError("unit must be days/months/years")
+        return v
+
+    @field_validator("notice_period_value", "min_term_value", "cure_period_value")
+    @classmethod
+    def _non_neg_t(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
     @field_validator("notice_basis")
     @classmethod
     def _valid_t_basis(cls, v):
@@ -525,13 +541,6 @@ class TerminationCorrectionInput(BaseModel):
     def _valid_t_measured(cls, v):
         if v not in (None, "sent", "received", "unspecified"):
             raise ValueError("invalid notice_measured_to")
-        return v
-
-    @field_validator("notice_period_value", "min_term_value")
-    @classmethod
-    def _non_neg_t(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("value must be >= 0")
         return v
 
     @field_validator("termination_fee_amount", "termination_fee_percent")

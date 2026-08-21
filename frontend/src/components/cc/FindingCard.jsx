@@ -274,6 +274,10 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             )}
             <Fact label="Notice period"
               value={noticePeriodText(e) || "Not stated"} testid="finding-termination-notice" />
+            {(e.cure_period_value != null) && (
+              <Fact label="Cure period"
+                value={`${e.cure_period_value} ${e.cure_period_unit || "days"}`} testid="finding-termination-cure" />
+            )}
             {e.earliest_termination_date && (
               <Fact label="Earliest exit"
                 value={longDate(e.earliest_termination_date)} testid="finding-termination-earliest" />

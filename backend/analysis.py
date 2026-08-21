@@ -812,6 +812,7 @@ TERMINATION_EDITABLE_FIELDS = [
     "termination_type", "who_may_terminate", "notice_period_value",
     "notice_period_unit", "notice_basis", "notice_measured_to", "effective_date",
     "min_term_value", "min_term_unit", "earliest_termination_date",
+    "cure_period_value", "cure_period_unit",
     "termination_fee_stated", "termination_fee_amount", "termination_fee_percent",
     "termination_fee_basis", "method", "recipient",
 ]

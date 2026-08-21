@@ -16,7 +16,7 @@ import { api, formatApiErrorDetail } from "@/lib/api";
 const NUM = ["initial_term_value", "renewal_period_value", "notice_days_min", "notice_days_max"];
 const PRICE_INT = ["objection_window_value"];
 const PRICE_FLOAT = ["increase_percent", "increase_amount"];
-const TERM_INT = ["notice_period_value", "min_term_value"];
+const TERM_INT = ["notice_period_value", "min_term_value", "cure_period_value"];
 const TERM_FLOAT = ["termination_fee_amount", "termination_fee_percent"];
 
 const RENEWAL_FIELDS = [
@@ -35,6 +35,7 @@ const TERM_FIELDS = [
   "termination_type", "who_may_terminate", "notice_period_value",
   "notice_period_unit", "notice_basis", "notice_measured_to", "effective_date",
   "min_term_value", "min_term_unit", "earliest_termination_date",
+  "cure_period_value", "cure_period_unit",
   "termination_fee_stated", "termination_fee_amount", "termination_fee_percent",
   "termination_fee_basis", "method", "recipient",
 ];
@@ -134,6 +135,8 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Txt k="min_term_value" label="Minimum term value (lock-in)" ph="12" type="number" />
               <Sel k="min_term_unit" label="Minimum term unit" options={["days", "months", "years"]} />
               <Txt k="earliest_termination_date" label="Earliest exit date (YYYY-MM-DD)" ph="optional" />
+              <Txt k="cure_period_value" label="Cure period value" ph="30" type="number" />
+              <Sel k="cure_period_unit" label="Cure period unit" options={["days", "months", "years"]} />
               <Sel k="termination_fee_stated" label="Termination fee stated?" options={["true", "false"]} />
               <Txt k="termination_fee_amount" label="Termination fee amount" ph="5000" type="number" />
               <Txt k="termination_fee_percent" label="Termination fee percent" ph="10" type="number" />
