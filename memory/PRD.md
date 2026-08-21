@@ -100,6 +100,24 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   sources, computed money, plain-English, rank=urgent. No Rate Shock composite /
   termination rights / other types built (out of scope).
 
+### Stage 6D — Finish Stage 6 extras (2026-06)
+- Deadline Reminders (in-app, no scheduler): reuses reminders collection.
+  POST/GET /findings/{id}/reminders (fire_date = deadline - days_before),
+  DELETE /reminders/{id}, GET /reminders (marks `due` when fire_date<=today &
+  not sent & deadline not passed). UI: RemindersBlock on actionable FindingCards
+  + "Reminders due" list on Dashboard.
+- Value By Contract: GET /dashboard/value-by-contract -> per-contract confirmed
+  vs pending using analysis.outcome_protected_value. UI: dashboard table.
+- Outcome Timeline: GET /contracts/{id}/timeline merges findings/actions/
+  evidence/outcomes chronologically. UI: Timeline section on ContractDetail.
+- Savings Report: GET /reports/savings -> headline confirmed_value_protected
+  (CONFIRMED ONLY; pending reported separately, never in headline) + per-line
+  contract/outcome detail. UI: "Savings report" button downloads a CSV.
+- Verified one path each (login as test user): reminder create/list/all/delete,
+  value-by-contract (10 rows), timeline (5 events), savings report (confirmed vs
+  pending split). Screenshots confirmed dashboard + finding card + timeline. No
+  new clause extraction / refactors.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

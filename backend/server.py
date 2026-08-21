@@ -14,7 +14,7 @@ dashboard metrics, populated /demo data.
 import asyncio
 import logging
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -815,6 +815,203 @@ async def list_outcomes(finding_id: str, user_id: str = Depends(current_user_id)
     async for o in db.outcomes.find({"finding_id": finding_id, "user_id": user_id}).sort("recorded_at", -1):
         outcomes.append({**Outcome.from_mongo(o).model_dump(), "currency": o.get("currency")})
     return {"outcomes": outcomes}
+
+
+# --------------------------------------------------------------------------
+# Stage 6D.1 — Deadline reminders (in-app; reuses the reminders collection)
+# --------------------------------------------------------------------------
+class ReminderInput(BaseModel):
+    days_before: int
+
+    @field_validator("days_before")
+    @classmethod
+    def _non_neg(cls, v):
+        if v is None or v < 0:
+            raise ValueError("days_before must be >= 0")
+        return v
+
+
+@api_router.post("/findings/{finding_id}/reminders")
+async def create_reminder(finding_id: str, body: ReminderInput,
+                          user_id: str = Depends(current_user_id)):
+    from models import Finding, Reminder
+    oid, doc = await _get_finding(finding_id, user_id)
+    f = Finding.from_mongo(doc)
+    deadline = (f.extracted or {}).get("effective_action_deadline")
+    if not deadline:
+        raise HTTPException(status_code=400,
+                            detail="This finding has no actionable deadline to remind you about.")
+    d = datetime.strptime(deadline, "%Y-%m-%d").date()
+    fire = (d - timedelta(days=body.days_before)).isoformat()
+    reminder = Reminder(finding_id=finding_id, user_id=user_id,
+                        fire_date=fire, days_before=body.days_before)
+    res = await db.reminders.insert_one(reminder.to_mongo())
+    reminder.id = str(res.inserted_id)
+    return {"reminder": reminder.model_dump()}
+
+
+@api_router.get("/findings/{finding_id}/reminders")
+async def list_finding_reminders(finding_id: str,
+                                 user_id: str = Depends(current_user_id)):
+    from models import Reminder
+    await _get_finding(finding_id, user_id)
+    reminders = []
+    async for r in db.reminders.find(
+            {"finding_id": finding_id, "user_id": user_id}).sort("fire_date", 1):
+        reminders.append(Reminder.from_mongo(r).model_dump())
+    return {"reminders": reminders}
+
+
+@api_router.delete("/reminders/{reminder_id}")
+async def delete_reminder(reminder_id: str, user_id: str = Depends(current_user_id)):
+    try:
+        oid = ObjectId(reminder_id)
+    except InvalidId:
+        raise HTTPException(status_code=404, detail="Reminder not found.")
+    res = await db.reminders.delete_one({"_id": oid, "user_id": user_id})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Reminder not found.")
+    return {"deleted": True, "reminder_id": reminder_id}
+
+
+@api_router.get("/reminders")
+async def list_reminders(user_id: str = Depends(current_user_id)):
+    """All reminders for the user, each marked `due` when its fire_date has
+    arrived and it has not been sent. No background scheduler — reminders are
+    surfaced in-app on request (the simplest reliable approach)."""
+    from models import Finding, Reminder
+    today = date.today().isoformat()
+    items = []
+    async for r in db.reminders.find({"user_id": user_id}).sort("fire_date", 1):
+        rem = Reminder.from_mongo(r).model_dump()
+        fdoc = await db.findings.find_one(
+            {"_id": ObjectId(rem["finding_id"]), "user_id": user_id})
+        if not fdoc:
+            continue
+        f = Finding.from_mongo(fdoc)
+        contract = await db.contracts.find_one(
+            {"_id": ObjectId(f.contract_id), "user_id": user_id})
+        deadline = (f.extracted or {}).get("effective_action_deadline")
+        rem["due"] = (rem["fire_date"] <= today and not rem.get("sent")
+                      and (not deadline or deadline >= today))
+        rem["contract_id"] = f.contract_id
+        rem["contract_name"] = contract.get("name") if contract else None
+        rem["finding_type"] = f.type
+        rem["deadline"] = deadline
+        items.append(rem)
+    due = sum(1 for i in items if i["due"])
+    return {"reminders": items, "due_count": due}
+
+
+# --------------------------------------------------------------------------
+# Stage 6D.2 — Value by contract (per-contract Stage 6 accounting)
+# --------------------------------------------------------------------------
+@api_router.get("/dashboard/value-by-contract")
+async def value_by_contract(user_id: str = Depends(current_user_id)):
+    contracts = {}
+    async for c in db.contracts.find({"user_id": user_id}):
+        contracts[str(c["_id"])] = {
+            "contract_id": str(c["_id"]), "name": c.get("name"),
+            "currency": c.get("currency") or "USD",
+            "confirmed_value": 0.0, "pending_value": 0.0, "outcome_count": 0,
+        }
+    async for o in db.outcomes.find({"user_id": user_id}):
+        cid = o.get("contract_id")
+        row = contracts.get(cid)
+        if not row:
+            continue
+        val = analysis.outcome_protected_value(o)
+        row["outcome_count"] += 1
+        if o.get("confirmed"):
+            row["confirmed_value"] += val
+        else:
+            row["pending_value"] += val
+        if o.get("currency"):
+            row["currency"] = o.get("currency")
+    rows = sorted(contracts.values(), key=lambda r: r["confirmed_value"], reverse=True)
+    return {"contracts": rows}
+
+
+# --------------------------------------------------------------------------
+# Stage 6D.3 — Outcome timeline (findings + actions + evidence + outcomes)
+# --------------------------------------------------------------------------
+@api_router.get("/contracts/{contract_id}/timeline")
+async def contract_timeline(contract_id: str, user_id: str = Depends(current_user_id)):
+    from models import Finding, Action, Outcome
+    oid = await _oid(user_id, contract_id)
+    contract = await db.contracts.find_one({"_id": oid, "user_id": user_id})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    events = []
+    async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
+        fm = Finding.from_mongo(f)
+        label = "renewal" if fm.type == "renewal_notice" else "price increase"
+        events.append({"kind": "finding", "date": f.get("created_at"),
+                       "title": f"Finding detected — {label}",
+                       "detail": fm.validation_status})
+    async for a in db.actions.find({"contract_id": contract_id, "user_id": user_id}):
+        am = Action.from_mongo(a)
+        events.append({"kind": "action", "date": am.sent_date or am.logged_at,
+                       "title": f"Action logged — {am.action_type.replace('_', ' ')}",
+                       "detail": f"via {am.delivery_method}" if am.delivery_method else None})
+        for ev in am.evidence_files or []:
+            events.append({"kind": "evidence",
+                           "date": (ev.get("uploaded_at") or "")[:10] or am.sent_date,
+                           "title": f"Evidence attached — {ev.get('filename')}",
+                           "detail": f"SHA-256 {str(ev.get('sha256'))[:10]}…"})
+    async for o in db.outcomes.find({"contract_id": contract_id, "user_id": user_id}):
+        om = Outcome.from_mongo(o)
+        val = analysis.outcome_protected_value(o)
+        detail = (f"{o.get('currency') or 'USD'} {val:,.0f}"
+                  + (" · confirmed" if om.confirmed else " · pending")) if val else (
+                  "confirmed" if om.confirmed else "pending")
+        events.append({"kind": "outcome", "date": (om.recorded_at or "")[:10],
+                       "title": f"Outcome recorded — {om.result.replace('_', ' ')}",
+                       "detail": detail})
+    events = [e for e in events if e.get("date")]
+    events.sort(key=lambda e: e["date"])
+    return {"events": events, "contract_name": contract.get("name")}
+
+
+# --------------------------------------------------------------------------
+# Stage 6D.4 — Savings report (confirmed value only in the headline)
+# --------------------------------------------------------------------------
+@api_router.get("/reports/savings")
+async def savings_report(user_id: str = Depends(current_user_id)):
+    from models import Finding, Outcome
+    currency = "USD"
+    confirmed_total = 0.0
+    pending_total = 0.0
+    lines = []
+    async for o in db.outcomes.find({"user_id": user_id}):
+        val = analysis.outcome_protected_value(o)
+        cur = o.get("currency") or "USD"
+        if o.get("currency"):
+            currency = cur
+        contract = await db.contracts.find_one(
+            {"_id": ObjectId(o["contract_id"]), "user_id": user_id}) if o.get("contract_id") else None
+        if o.get("confirmed"):
+            confirmed_total += val
+        else:
+            pending_total += val
+        if o.get("confirmed") and val > 0:
+            lines.append({
+                "contract_name": contract.get("name") if contract else "—",
+                "result": o.get("result"),
+                "value": val, "currency": cur,
+                "recorded_at": (o.get("recorded_at") or "")[:10],
+                "notes": o.get("notes"),
+            })
+    lines.sort(key=lambda x: x["value"], reverse=True)
+    return {
+        "generated_at": utc_now_iso(),
+        "currency": currency,
+        "confirmed_value_protected": confirmed_total,  # headline: confirmed ONLY
+        "pending_value": pending_total,                # shown separately, never in headline
+        "confirmed_outcomes": len(lines),
+        "lines": lines,
+    }
+
 
 
 @api_router.get("/accuracy")

@@ -17,7 +17,12 @@ export const DASHBOARD = {
   confirmedValueProtected: "dashboard-confirmed-value-protected",
   pendingValue: "dashboard-pending-value",
   windowsMissed: "dashboard-windows-missed",
+  remindersDue: "dashboard-reminders-due",
+  valueByContract: "dashboard-value-by-contract",
+  savingsReportBtn: "dashboard-savings-report-btn",
 };
+
+export const TIMELINE = { root: "contract-timeline" };
 
 export const CONTRACTS = {
   root: "contracts-page",

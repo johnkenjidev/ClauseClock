@@ -13,12 +13,21 @@ import {
 import { api } from "@/lib/api";
 import { Eyebrow } from "@/components/cc/Primitives";
 import { FindingCard } from "@/components/cc/FindingCard";
-import { CONTRACT_DETAIL } from "@/constants/testIds";
+import { CONTRACT_DETAIL, TIMELINE } from "@/constants/testIds";
 
 const money = (v, cur) =>
   v == null ? null : new Intl.NumberFormat("en-US", {
     style: "currency", currency: cur || "USD", maximumFractionDigits: 0,
   }).format(v);
+
+const KIND_LABEL = { finding: "Finding", action: "Action", evidence: "Evidence", outcome: "Outcome" };
+const tlDate = (iso) => {
+  if (!iso) return "—";
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y) return s;
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
 
 const ROLE_LABEL = {
   primary: "Primary agreement", amendment: "Amendment",
@@ -38,6 +47,7 @@ export default function ContractDetail() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
   const [warnings, setWarnings] = useState([]);
+  const [timeline, setTimeline] = useState([]);
 
   const load = useCallback(() => {
     api.get(`/contracts/${contractId}`)
@@ -45,6 +55,9 @@ export default function ContractDetail() {
       .catch(() => setNotFound(true));
     api.get(`/contracts/${contractId}/findings`)
       .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase")); setStatus(r.data.status); })
+      .catch(() => {});
+    api.get(`/contracts/${contractId}/timeline`)
+      .then((r) => setTimeline(r.data.events || []))
       .catch(() => {});
   }, [contractId]);
 
@@ -182,6 +195,24 @@ export default function ContractDetail() {
           ))}
         </div>
       </div>
+
+      {/* Outcome timeline (Stage 6D) */}
+      {timeline.length > 0 && (
+        <div className="mt-8" data-testid={TIMELINE.root}>
+          <Eyebrow>Timeline</Eyebrow>
+          <div className="cc-seal-rule mt-4 mb-5" />
+          <ol className="relative border-l border-rule ml-2 space-y-5">
+            {timeline.map((ev, i) => (
+              <li key={i} className="ml-5" data-testid={`timeline-${ev.kind}-${i}`}>
+                <span className="absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full bg-seal" />
+                <p className="cc-section-ref text-ink-soft">{tlDate(ev.date)} · {KIND_LABEL[ev.kind]}</p>
+                <p className="cc-plain-english text-ink mt-0.5">{ev.title}</p>
+                {ev.detail && <p className="cc-days-remaining mt-0.5">{ev.detail}</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {/* Documents + extracted text */}
       <div className="mt-8">

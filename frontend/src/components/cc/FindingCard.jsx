@@ -2,9 +2,9 @@
 // Summary register (calm, white) with the hero deadline; evidence register
 // (verbatim, --document ground) grouped by purpose with server-resolved
 // source locations. No plain-English explanations (that is Stage 4).
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Check, Pencil, X } from "lucide-react";
+import { ChevronDown, Check, Pencil, X, Bell, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { LegalFooter } from "@/components/cc/Primitives";
@@ -300,6 +300,10 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         </div>
         )}
 
+        {!readOnly && !needsReview && heroIso && (
+          <RemindersBlock findingId={finding.id} deadline={heroIso} />
+        )}
+
         {/* Clause drawer toggle */}
         <button
           data-testid="clause-drawer-toggle"
@@ -353,3 +357,52 @@ const Fact = ({ label, value, testid }) => (
     <dd className="cc-plain-english mt-1 text-ink" data-testid={testid}>{value}</dd>
   </div>
 );
+
+function RemindersBlock({ findingId, deadline }) {
+  const [reminders, setReminders] = useState([]);
+  const [days, setDays] = useState(30);
+  const [busy, setBusy] = useState(false);
+  const load = () =>
+    api.get(`/findings/${findingId}/reminders`).then((r) => setReminders(r.data.reminders)).catch(() => {});
+  useEffect(() => { load(); }, [findingId]);
+
+  const add = async () => {
+    setBusy(true);
+    try { await api.post(`/findings/${findingId}/reminders`, { days_before: Number(days) }); load(); }
+    finally { setBusy(false); }
+  };
+  const remove = async (id) => { await api.delete(`/reminders/${id}`); load(); };
+
+  return (
+    <div className="mt-6 pt-5 border-t border-rule" data-testid="reminders-block">
+      <div className="flex items-center gap-2">
+        <Bell className="h-4 w-4 text-ink-soft" strokeWidth={2} />
+        <span className="cc-eyebrow">Deadline reminders</span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="cc-days-remaining">Remind me</span>
+        <input type="number" min="0" value={days} data-testid="reminder-days-input"
+          onChange={(e) => setDays(e.target.value)}
+          className="bg-card border border-rule rounded-md h-9 w-20 px-2 cc-days-remaining" />
+        <span className="cc-days-remaining">days before the deadline</span>
+        <Button size="sm" disabled={busy || days === "" } data-testid="reminder-add-btn" onClick={add}
+          className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4">
+          {busy ? "Saving…" : "Set reminder"}
+        </Button>
+      </div>
+      {reminders.length > 0 && (
+        <ul className="mt-3 space-y-2" data-testid="reminders-list">
+          {reminders.map((r) => (
+            <li key={r.id} className="flex items-center justify-between rounded-md border border-rule bg-document px-4 py-2">
+              <span className="cc-days-remaining text-ink" data-testid={`reminder-${r.id}`}>
+                {r.days_before} days before · fires {longDate(r.fire_date)}
+              </span>
+              <button data-testid={`reminder-delete-${r.id}`} onClick={() => remove(r.id)}
+                className="text-ink-soft hover:text-stamp"><Trash2 className="h-4 w-4" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
