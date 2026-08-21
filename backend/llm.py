@@ -313,6 +313,100 @@ async def extract_termination(chunks: list[dict]) -> dict:
     return _parse_json(resp)
 
 
+# --------------------------------------------------------------------------
+# Stage 8/10 — shared obligations pipeline (6 additional finding types).
+# One locate + one extract classify each detected clause into ONE of:
+#   service_credit, invoice_dispute, notice_requirement, fee_or_penalty,
+#   rebate_or_refund, warranty_claim. Returns a LIST of findings.
+# --------------------------------------------------------------------------
+LOCATE_OBLIGATIONS_SYSTEM = (
+    "You are a contract-analysis locator. You receive numbered chunks of a "
+    "contract. Identify ONLY the chunks that may contain language about any of "
+    "these: (1) SERVICE CREDITS / SLA credits — a credit owed to the customer "
+    "when a service level is missed; (2) INVOICE DISPUTE — a right or window to "
+    "dispute, query, or withhold a disputed invoice; (3) NOTICE REQUIREMENT — a "
+    "general formal-notice provision (how/where notices must be delivered, "
+    "addresses, methods); (4) FEE OR PENALTY — a late-payment fee, default "
+    "interest, or other penalty/charge; (5) REBATE OR REFUND — a volume rebate, "
+    "refund, or credit owed back; (6) WARRANTY CLAIM — a warranty and the "
+    "window/process to make a warranty claim. Return STRICT JSON: "
+    "{\"chunk_ids\": [\"c_01\", ...]}. Only possibly-relevant ids. No prose."
+)
+
+EXTRACT_OBLIGATIONS_SYSTEM = (
+    "You extract obligation/right findings from the supplied contract chunks. "
+    "Output STRICT JSON only, no prose. Return a LIST of findings — one per "
+    "distinct clause you can ground in the text.\n"
+    "HARD RULES:\n"
+    "- Each finding's finding_type MUST be exactly one of: \"service_credit\", "
+    "\"invoice_dispute\", \"notice_requirement\", \"fee_or_penalty\", "
+    "\"rebate_or_refund\", \"warranty_claim\". If a clause fits none of these, "
+    "do NOT emit it.\n"
+    "- Anything not explicitly stated is null. NEVER infer, estimate, repair, or "
+    "reconstruct missing contract language. Do not invent numbers, percentages, "
+    "dates, windows, or parties.\n"
+    "- amount is an absolute money amount ONLY if explicitly stated. "
+    "amount_percent is a NUMBER of percent ONLY if a percentage is stated. "
+    "rate_text is the verbatim rate phrase (e.g. \"1.5% per month\") ONLY if "
+    "stated.\n"
+    "- window_value + window_unit (days|months|years) capture a RELATIVE window "
+    "(e.g. \"within 30 days\"). window_reference is the verbatim short phrase "
+    "the window is measured from (e.g. \"the invoice date\", \"delivery\"). "
+    "deadline_stated is an ISO YYYY-MM-DD ONLY if an explicit calendar date is "
+    "stated. Never output trigger_date — the server/user provides it.\n"
+    "- who is who benefits/must act: \"customer\", \"supplier\", \"either\", or "
+    "null.\n"
+    "- Every source quote is copied VERBATIM from the supplied chunk, max 400 "
+    "characters, and must echo the chunk_id it came from. Never output "
+    "document_id, page number, section number, or char_offset.\n"
+    "- Every finding MUST include at least one source with purpose "
+    "\"obligation\". Every populated field must have a supporting source "
+    "purpose. Repeat the SAME quote+chunk_id once per purpose when one clause "
+    "supports several.\n"
+    "- If there is no relevant content at all, return {\"findings\": []}.\n"
+    "Schema:\n"
+    "{\"findings\": [{\"finding_type\": \"service_credit|invoice_dispute|"
+    "notice_requirement|fee_or_penalty|rebate_or_refund|warranty_claim\", "
+    "\"who\": \"customer|supplier|either|null\", \"amount\": number|null, "
+    "\"amount_percent\": number|null, \"rate_text\": str|null, "
+    "\"window_value\": int|null, \"window_unit\": \"days|months|years|null\", "
+    "\"window_basis\": \"calendar|business|null\", \"window_reference\": "
+    "str|null, \"deadline_stated\": \"YYYY-MM-DD|null\", \"sources\": "
+    "[{\"purpose\": \"obligation|window|amount|party|method\", \"chunk_id\": "
+    "\"c_xx\", \"quote\": \"verbatim <=400 chars\"}], \"confidence\": "
+    "\"high|medium|low\"}]}"
+)
+
+
+async def locate_obligations(chunks: list[dict]) -> list[str]:
+    chat = _new_chat(LOCATE_OBLIGATIONS_SYSTEM)
+    prompt = (
+        "Chunks:\n\n" + _render_chunks(chunks, include_text=False) +
+        "\n\nReturn JSON {\"chunk_ids\": [...]} listing only chunks that may "
+        "contain service-credit, invoice-dispute, notice-requirement, "
+        "fee/penalty, rebate/refund, or warranty-claim language."
+    )
+    resp = await chat.send_message(UserMessage(text=prompt))
+    data = _parse_json(resp)
+    ids = data.get("chunk_ids", []) if isinstance(data, dict) else []
+    valid = {c["chunk_id"] for c in chunks}
+    return [i for i in ids if i in valid]
+
+
+async def extract_obligations(chunks: list[dict]) -> list[dict]:
+    chat = _new_chat(EXTRACT_OBLIGATIONS_SYSTEM)
+    prompt = (
+        "Extract the obligation/right findings from these chunks. Quote verbatim "
+        "and echo chunk_ids.\n\n" + _render_chunks(chunks, include_text=True)
+    )
+    data = _parse_json(await chat.send_message(UserMessage(text=prompt)))
+    if isinstance(data, dict):
+        return data.get("findings", []) or []
+    if isinstance(data, list):
+        return data
+    return []
+
+
 
 
 EXPLAIN_SYSTEM = (

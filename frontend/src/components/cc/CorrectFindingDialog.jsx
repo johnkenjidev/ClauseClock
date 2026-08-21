@@ -18,6 +18,13 @@ const PRICE_INT = ["objection_window_value"];
 const PRICE_FLOAT = ["increase_percent", "increase_amount"];
 const TERM_INT = ["notice_period_value", "min_term_value", "cure_period_value"];
 const TERM_FLOAT = ["termination_fee_amount", "termination_fee_percent"];
+const GEN_INT = ["window_value"];
+const GEN_FLOAT = ["amount", "amount_percent"];
+
+const GENERIC_TYPES = [
+  "service_credit", "invoice_dispute", "notice_requirement",
+  "fee_or_penalty", "rebate_or_refund", "warranty_claim",
+];
 
 const RENEWAL_FIELDS = [
   "effective_date", "initial_term_value", "initial_term_unit", "renewal_type",
@@ -39,13 +46,19 @@ const TERM_FIELDS = [
   "termination_fee_stated", "termination_fee_amount", "termination_fee_percent",
   "termination_fee_basis", "method", "recipient",
 ];
+const GENERIC_FIELDS = [
+  "who", "amount", "amount_percent", "rate_text",
+  "window_value", "window_unit", "window_basis", "window_reference",
+  "trigger_date", "deadline_stated",
+];
 
 const emptyToNull = (v) => (v === "" || v === undefined ? null : v);
 
 export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
   const isPrice = finding.type === "price_increase";
   const isTermination = finding.type === "termination_right";
-  const fields = isPrice ? PRICE_FIELDS : isTermination ? TERM_FIELDS : RENEWAL_FIELDS;
+  const isGeneric = GENERIC_TYPES.includes(finding.type);
+  const fields = isPrice ? PRICE_FIELDS : isTermination ? TERM_FIELDS : isGeneric ? GENERIC_FIELDS : RENEWAL_FIELDS;
   const e = finding.extracted || {};
   const init = {};
   fields.forEach((k) => (init[k] = e[k] ?? ""));
@@ -64,6 +77,8 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
       if (PRICE_FLOAT.includes(k) && val !== null) val = parseFloat(val);
       if (TERM_INT.includes(k) && val !== null) val = parseInt(val, 10);
       if (TERM_FLOAT.includes(k) && val !== null) val = parseFloat(val);
+      if (GEN_INT.includes(k) && val !== null) val = parseInt(val, 10);
+      if (GEN_FLOAT.includes(k) && val !== null) val = parseFloat(val);
       if (k === "termination_fee_stated") val = val === null ? null : (val === "true" || val === true);
       payload[k] = val;
     });
@@ -143,6 +158,19 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Txt k="termination_fee_basis" label="Fee basis" ph="remaining fees" />
               <Txt k="method" label="Notice method" ph="written notice" />
               <Txt k="recipient" label="Notice recipient" ph="General Counsel" />
+            </>
+          ) : isGeneric ? (
+            <>
+              <Sel k="who" label="Who it applies to" options={["customer", "supplier", "either"]} />
+              <Txt k="amount" label="Amount" ph="500" type="number" />
+              <Txt k="amount_percent" label="Percentage" ph="10" type="number" />
+              <Txt k="rate_text" label="Rate (verbatim)" ph="1.5% per month" />
+              <Txt k="window_value" label="Window value" ph="30" type="number" />
+              <Sel k="window_unit" label="Window unit" options={["days", "months", "years"]} />
+              <Sel k="window_basis" label="Window basis" options={["calendar", "business"]} />
+              <Txt k="window_reference" label="Measured from" ph="the invoice date" />
+              <Txt k="trigger_date" label="Trigger date (YYYY-MM-DD)" ph="optional — enables deadline" />
+              <Txt k="deadline_stated" label="Explicit deadline (YYYY-MM-DD)" ph="optional" />
             </>
           ) : (
             <>

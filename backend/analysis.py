@@ -415,6 +415,10 @@ async def generate_explanation(db, finding: dict, user_id: str) -> dict:
         fact_keys = ("termination_type", "who_may_terminate", "notice_period_value",
                      "notice_period_unit", "earliest_termination_date",
                      "termination_fee_amount", "termination_fee_percent")
+    elif finding.get("type") in GENERIC_TYPES:
+        fact_keys = ("who", "amount", "amount_percent", "rate_text",
+                     "window_value", "window_unit", "window_reference",
+                     "effective_action_deadline")
     else:
         fact_keys = ("next_renewal_date", "effective_action_deadline",
                      "notice_days_min", "notice_days_max", "notice_basis",
@@ -1090,6 +1094,218 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
     if validation_status == "validated":
         fd = await generate_explanation(db, fd, user_id)
     return [fd], []
+
+
+# --------------------------------------------------------------------------
+# Stage 8/10 — shared obligations pipeline (service_credit, invoice_dispute,
+# notice_requirement, fee_or_penalty, rebate_or_refund, warranty_claim).
+# Reuses chunking / provenance validation / ranking / review / explanations.
+# --------------------------------------------------------------------------
+GENERIC_TYPES = [
+    "service_credit", "invoice_dispute", "notice_requirement",
+    "fee_or_penalty", "rebate_or_refund", "warranty_claim",
+]
+_CREDIT_TYPES = {"service_credit", "rebate_or_refund"}
+_COST_TYPES = {"fee_or_penalty"}
+REQUIRED_GENERIC_PURPOSES = {"obligation"}
+
+OBLIGATION_HINT = re.compile(
+    r"service\s+credit|SLA\s+credit|service\s+level\s+credit|"
+    r"dispute(d)?\s+(the\s+)?invoice|invoice.{0,20}dispute|good\s+faith\s+dispute|"
+    r"withhold(ing)?\s+(disputed\s+)?payment|"
+    r"late\s+(payment\s+)?(fee|charge|interest)|default\s+interest|"
+    r"penalt(y|ies)|interest\s+(shall|will|may)\s+accrue|"
+    r"rebate|refund|credit\s+note|volume\s+discount|"
+    r"warrant(y|ies)|warranty\s+claim|warranty\s+period|"
+    r"notice(s)?\s+(shall|must|will)\s+be\s+(given|sent|delivered|in\s+writing)|"
+    r"any\s+notice\s+(under|required)",
+    re.I)
+
+GENERIC_EDITABLE_FIELDS = [
+    "who", "amount", "amount_percent", "rate_text",
+    "window_value", "window_unit", "window_basis", "window_reference",
+    "trigger_date", "deadline_stated",
+]
+
+
+def compute_generic(extracted: dict, ftype: str, today: date):
+    """Deterministic normalization for the shared obligation finding types.
+    Server-side only; never invents an amount, a window, or a date.
+
+    Deadline (all math server-side):
+      - explicit calendar deadline_stated -> tracked;
+      - relative window + a known trigger_date -> compute trigger + window;
+      - relative window with no verified trigger date -> preserve the rule and
+        mark timing needs_review (no invented date).
+
+    Returns (computed, notes, needs_review, money_amount, money_kind, action_required).
+    """
+    out = {"effective_action_deadline": None, "days_remaining": None}
+    notes, needs_review = [], False
+    money_amount, money_kind = None, None
+
+    amt = extracted.get("amount")
+    if amt is not None:
+        money_amount = float(amt)
+        money_kind = ("credit" if ftype in _CREDIT_TYPES
+                      else "cost" if ftype in _COST_TYPES else None)
+
+    wv = extracted.get("window_value")
+    wu = extracted.get("window_unit")
+    stated = extracted.get("deadline_stated")
+    trigger = extracted.get("trigger_date")
+
+    deadline_date = None
+    if stated:
+        try:
+            deadline_date = datetime.strptime(stated, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            deadline_date = None
+    elif trigger and wv and wu:
+        try:
+            base = datetime.strptime(trigger, "%Y-%m-%d").date()
+            rel = normalize_unit(wv, wu)
+            if rel is not None:
+                deadline_date = base + rel  # act within the window after the trigger
+        except (ValueError, TypeError):
+            deadline_date = None
+
+    action_required = False
+    if deadline_date is not None:
+        out["effective_action_deadline"] = deadline_date.isoformat()
+        out["days_remaining"] = (deadline_date - today).days
+        action_required = True
+    elif wv and wu:
+        needs_review = True
+        ref = extracted.get("window_reference")
+        notes.append(
+            "This window is measured from a trigger date"
+            + (f" ({ref})" if ref else " (e.g. the invoice or delivery date)")
+            + " that is not stated. Add that date to track this deadline.")
+
+    return out, notes, needs_review, money_amount, money_kind, action_required
+
+
+def recompute_generic_derived(edits: dict, ftype: str, today: date = None) -> dict:
+    today = today or date.today()
+    computed, notes, review, money_amount, money_kind, action_required = compute_generic(
+        edits, ftype, today)
+    validation_status = "needs_review" if review else "validated"
+    fields = {k: edits.get(k) for k in GENERIC_EDITABLE_FIELDS}
+    fields.update(computed)
+    if validation_status == "needs_review":
+        for k in ("effective_action_deadline", "days_remaining"):
+            fields[k] = None
+        action_required = False
+    return {
+        "extracted": fields,
+        "validation_status": validation_status,
+        "validation_notes": notes,
+        "action_required": action_required,
+        "money_amount": money_amount,
+        "money_kind": money_kind,
+    }
+
+
+async def run_obligations_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
+    """Orchestrate the shared obligations pipeline; persist 0-N findings across
+    the 6 generic types. One locate + one extract (returns a list)."""
+    from models import Finding, FindingSource
+
+    contract_id = str(contract["_id"])
+    documents = [d async for d in db.documents.find(
+        {"contract_id": contract_id, "user_id": user_id})]
+    docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
+    chunks, chunk_map = build_chunks(list(docs_by_id.values()))
+
+    # Idempotent re-analysis; Stage 9 preserves reviewed findings.
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id,
+         "type": {"$in": GENERIC_TYPES},
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
+    if not chunks:
+        return [], []
+
+    hint_ids = [c["chunk_id"] for c in chunks if OBLIGATION_HINT.search(c["text"])]
+    candidate_ids = await llm.locate_obligations(chunks)
+    candidate_ids = list(dict.fromkeys((candidate_ids or []) + hint_ids))
+    if not candidate_ids:
+        return [], []
+    candidates = [c for c in chunks if c["chunk_id"] in candidate_ids]
+
+    raw_findings = await llm.extract_obligations(candidates)
+    if not raw_findings and hint_ids:
+        focus = [c for c in chunks if c["chunk_id"] in set(hint_ids)]
+        if focus:
+            raw_findings = await llm.extract_obligations(focus)
+    if not raw_findings:
+        return [], []
+
+    today = date.today()
+    persisted = []
+    for rf in raw_findings:
+        if not isinstance(rf, dict):
+            continue
+        ftype = rf.get("finding_type")
+        if ftype not in GENERIC_TYPES:
+            continue
+
+        validated, valid_purposes = validate_sources(
+            rf.get("sources", []), chunk_map, docs_by_id)
+        if not validated:
+            continue  # invariant: sources[] never empty
+
+        validation_notes = []
+        needs_review = False
+        missing_required = REQUIRED_GENERIC_PURPOSES - valid_purposes
+        if missing_required:
+            needs_review = True
+            validation_notes.append(
+                "Missing validated source for: " + ", ".join(sorted(missing_required)))
+
+        confidence = rf.get("confidence") or "low"
+        doc_ids_in_sources = {s["document_id"] for s in validated}
+        if len(doc_ids_in_sources) > 1 and confidence == "high":
+            confidence = "medium"
+
+        computed, gen_notes, gen_review, money_amount, money_kind, action_required = compute_generic(
+            rf, ftype, today)
+        if gen_review:
+            needs_review = True
+        validation_notes.extend(gen_notes)
+
+        validation_status = "needs_review" if needs_review else "validated"
+        if needs_review and confidence == "high":
+            confidence = "medium"
+
+        extracted_fields = {k: rf.get(k) for k in GENERIC_EDITABLE_FIELDS}
+        extracted_fields.update(computed)
+        if validation_status == "needs_review":
+            for k in ("effective_action_deadline", "days_remaining"):
+                extracted_fields[k] = None
+            action_required = False
+
+        finding = Finding(
+            contract_id=contract_id, user_id=user_id, type=ftype,
+            extracted=extracted_fields,
+            sources=[FindingSource(**s) for s in validated],
+            confidence=confidence,
+            action_required=action_required,
+            money_amount=money_amount,
+            money_currency=(contract.get("currency") or "USD") if money_amount is not None else None,
+            money_kind=money_kind,
+            validation_status=validation_status,
+            validation_notes=validation_notes,
+            state="unconfirmed",
+        )
+        result = await db.findings.insert_one(finding.to_mongo())
+        finding.id = str(result.inserted_id)
+        fd = finding.model_dump()
+        if validation_status == "validated":
+            fd = await generate_explanation(db, fd, user_id)
+        persisted.append(fd)
+
+    return persisted, []
 
 
 # --------------------------------------------------------------------------

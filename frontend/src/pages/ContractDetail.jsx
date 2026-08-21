@@ -55,7 +55,7 @@ export default function ContractDetail() {
       .then((r) => setData(r.data))
       .catch(() => setNotFound(true));
     api.get(`/contracts/${contractId}/findings`)
-      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right")); setStatus(r.data.status); setSupersededCount(r.data.superseded_count || 0); })
+      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right" || f.type === "service_credit" || f.type === "invoice_dispute" || f.type === "notice_requirement" || f.type === "fee_or_penalty" || f.type === "rebate_or_refund" || f.type === "warranty_claim")); setStatus(r.data.status); setSupersededCount(r.data.superseded_count || 0); })
       .catch(() => {});
     api.get(`/contracts/${contractId}/timeline`)
       .then((r) => setTimeline(r.data.events || []))
@@ -69,7 +69,7 @@ export default function ContractDetail() {
     setAnalyzeError("");
     try {
       const { data: res } = await api.post(`/contracts/${contractId}/analyze`);
-      setFindings((res.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right"));
+      setFindings((res.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right" || f.type === "service_credit" || f.type === "invoice_dispute" || f.type === "notice_requirement" || f.type === "fee_or_penalty" || f.type === "rebate_or_refund" || f.type === "warranty_claim"));
       setWarnings(res.warnings || []);
       setStatus("analysed");
       load();

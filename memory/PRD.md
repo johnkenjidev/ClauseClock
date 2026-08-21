@@ -213,6 +213,36 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
+### Stage 8/10 — Final build pass: 6 obligation finding types (2026-06)
+- Added service_credit, invoice_dispute, notice_requirement, fee_or_penalty,
+  rebate_or_refund, warranty_claim via ONE shared "obligations" pipeline
+  (smallest change set; reuses chunking / provenance validation / ranking /
+  review / explanations / Confirm-Correct-Dismiss).
+- llm.py: locate_obligations + extract_obligations (strict JSON, returns a LIST
+  of findings each tagged finding_type; verbatim quotes, server-resolved
+  identity; drops clauses that fit none of the 6 types).
+- analysis.py: GENERIC_TYPES, OBLIGATION_HINT, compute_generic (deterministic,
+  server-side only — money from explicit amount only [credit for service_credit/
+  rebate_or_refund, cost for fee_or_penalty]; deadline tracked from an explicit
+  calendar date OR trigger_date + relative window; a relative window with no
+  verified trigger date -> preserve the rule, mark timing needs_review, NEVER
+  invent a date), run_obligations_analysis (persists 0-N findings, Stage-9-safe
+  delete), recompute_generic_derived for Correct, generic fact-keys in
+  generate_explanation.
+- server.py: /analyze runs the obligations pass; 6 types added to the Stage 9
+  reconcile loop; GenericCorrectionInput + generic branch in /correct.
+- Frontend: FindingCard generic headline/subhead + key facts + purpose labels;
+  CorrectFindingDialog generic fields (incl. trigger_date to compute a deadline);
+  ContractDetail "What matters" filter includes the 6 types.
+- Verified (sanity only, per user — NO testing_agent): live analyze over a DOCX
+  with all 6 clause types produced 6 validated/needs_review findings + renewal,
+  each with validated sources; needs_review windows show no invented date;
+  Correct with trigger_date 2026-08-01 + 30d window computed 2026-08-31 and
+  promoted to validated; frontend cards render (generic headline/type/window
+  test-ids present). compute_generic unit cases pass.
+
+### Original next tasks
+
 ### Stage 6C2 — value accounting + dashboard (2026-06)
 - analysis.outcome_protected_value: deterministic per-outcome value.
   terminated -> term_value_avoided (avoided next term only, never annualized);

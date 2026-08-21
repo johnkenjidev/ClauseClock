@@ -32,6 +32,11 @@ const PURPOSE_LABEL = {
   termination_right: "Termination right",
   effective_timing: "Effective timing",
   termination_fee: "Termination fee",
+  obligation: "Clause",
+  window: "Timing window",
+  amount: "Amount",
+  party: "Who it applies to",
+  method: "Method",
 };
 
 const INCREASE_TYPE_LABEL = {
@@ -109,6 +114,39 @@ function terminationSubhead(e) {
   return "An early-exit right applies.";
 }
 
+// Stage 8/10 — shared obligation finding types.
+const GENERIC_TYPES = [
+  "service_credit", "invoice_dispute", "notice_requirement",
+  "fee_or_penalty", "rebate_or_refund", "warranty_claim",
+];
+const GENERIC_LABEL = {
+  service_credit: "Service credit",
+  invoice_dispute: "Invoice dispute",
+  notice_requirement: "Notice requirement",
+  fee_or_penalty: "Fee or penalty",
+  rebate_or_refund: "Rebate or refund",
+  warranty_claim: "Warranty claim",
+};
+function genericWindowText(e) {
+  if (e.window_value == null) return null;
+  const unit = e.window_unit || "days";
+  const b = e.window_basis === "business" ? " business" : "";
+  return `${e.window_value}${b} ${unit}`;
+}
+function genericSubhead(f) {
+  const e = f.extracted || {};
+  const w = genericWindowText(e);
+  if (w) return `Within ${w}${e.window_reference ? ` of ${e.window_reference}` : ""}.`;
+  if (f.money_amount != null) return "A stated amount applies — see the details below.";
+  return "See the cited contract language below.";
+}
+function genericMoneyLabel(type) {
+  if (type === "fee_or_penalty") return "Fee / penalty";
+  if (type === "service_credit") return "Service credit";
+  if (type === "rebate_or_refund") return "Rebate / refund";
+  return "Amount";
+}
+
 // Palette selection per PART 5: stamp only ≤14d AND action required; pending
 // for 15–60d / review; neutral otherwise.
 function tone(f) {
@@ -135,6 +173,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const isPrice = finding.type === "price_increase";
   const isComposite = finding.type === "renewal_with_escalation";
   const isTermination = finding.type === "termination_right";
+  const isGeneric = GENERIC_TYPES.includes(finding.type);
   const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
   const badge = STATE_BADGE[finding.state];
@@ -169,7 +208,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
       <div className="p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isTermination ? "Termination right" : isPrice ? "Price increase" : "Automatic renewal"}</p>
+            <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isTermination ? "Termination right" : isGeneric ? GENERIC_LABEL[finding.type] : isPrice ? "Price increase" : "Automatic renewal"}</p>
             {finding.rank_category && (
               <span data-testid="finding-rank-category"
                 className="inline-block cc-eyebrow mt-1 text-ink-soft">
@@ -202,6 +241,15 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 </p>
                 <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-price-subhead">
                   {priceSubhead(e)}
+                </p>
+              </>
+            ) : isGeneric && !heroIso ? (
+              <>
+                <p className={`cc-hero-date mt-3 ${TONE_TEXT[t]}`} data-testid="finding-generic-headline">
+                  {(GENERIC_LABEL[finding.type] || "Obligation").toUpperCase()}
+                </p>
+                <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-generic-subhead">
+                  {genericSubhead(finding)}
                 </p>
               </>
             ) : (
@@ -327,6 +375,33 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
               <Fact label={e.increase_type === "capped" ? "Maximum annual increase" : "Estimated annual increase"}
                 value={<span className="cc-money">{money(finding.money_amount, finding.money_currency)}</span>}
                 testid="finding-money" />
+            )}
+          </dl>
+        ) : isGeneric ? (
+          <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <Fact label="Type" value={GENERIC_LABEL[finding.type]} testid="finding-generic-type" />
+            {e.who && (
+              <Fact label="Who it applies to" value={e.who} testid="finding-generic-who" />
+            )}
+            {finding.money_amount != null && (
+              <Fact label={genericMoneyLabel(finding.type)}
+                value={<span className="cc-money">{money(finding.money_amount, finding.money_currency)}</span>}
+                testid="finding-generic-amount" />
+            )}
+            {e.amount_percent != null && (
+              <Fact label="Percentage" value={`${e.amount_percent}%`} testid="finding-generic-percent" />
+            )}
+            {e.rate_text && (
+              <Fact label="Rate" value={e.rate_text} testid="finding-generic-rate" />
+            )}
+            {genericWindowText(e) && (
+              <Fact label="Window" value={genericWindowText(e)} testid="finding-generic-window" />
+            )}
+            {e.window_reference && (
+              <Fact label="Measured from" value={e.window_reference} testid="finding-generic-reference" />
+            )}
+            {!needsReview && e.effective_action_deadline && (
+              <Fact label="Deadline" value={longDate(e.effective_action_deadline)} testid="finding-generic-deadline" />
             )}
           </dl>
         ) : (

@@ -312,12 +312,15 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
         db, contract, user_id)
     term_findings, term_warnings = await analysis.run_termination_analysis(
         db, contract, user_id)
+    obl_findings, obl_warnings = await analysis.run_obligations_analysis(
+        db, contract, user_id)
 
     # Stage 9: reconcile regenerated findings against preserved reviewed ones.
     # If a reviewed finding changed, keep it and point superseded_by at the new
     # (unconfirmed) replacement; if unchanged, drop the duplicate replacement.
     superseded_changes = 0
-    for ftype in ("renewal_notice", "price_increase", "termination_right"):
+    for ftype in (["renewal_notice", "price_increase", "termination_right"]
+                  + analysis.GENERIC_TYPES):
         reviewed = await db.findings.find_one({
             "contract_id": contract_id, "user_id": user_id, "type": ftype,
             "state": {"$in": ["confirmed", "corrected"]},
@@ -347,7 +350,7 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
     return {"findings": findings, "superseded_changes": superseded_changes,
-            "warnings": warnings + price_warnings + term_warnings}
+            "warnings": warnings + price_warnings + term_warnings + obl_warnings}
 
 
 @api_router.get("/contracts/{contract_id}/findings")
@@ -594,6 +597,65 @@ class TerminationCorrectionInput(BaseModel):
         return v
 
 
+class GenericCorrectionInput(BaseModel):
+    who: Optional[str] = None
+    amount: Optional[float] = None
+    amount_percent: Optional[float] = None
+    rate_text: Optional[str] = None
+    window_value: Optional[int] = None
+    window_unit: Optional[str] = None
+    window_basis: Optional[str] = None
+    window_reference: Optional[str] = None
+    trigger_date: Optional[str] = None
+    deadline_stated: Optional[str] = None
+
+    @field_validator("who")
+    @classmethod
+    def _valid_g_who(cls, v):
+        if v not in (None, "customer", "supplier", "either"):
+            raise ValueError("invalid who")
+        return v
+
+    @field_validator("window_unit")
+    @classmethod
+    def _valid_g_unit(cls, v):
+        if v not in _UNITS:
+            raise ValueError("unit must be days/months/years")
+        return v
+
+    @field_validator("window_basis")
+    @classmethod
+    def _valid_g_basis(cls, v):
+        if v not in (None, "calendar", "business"):
+            raise ValueError("invalid window_basis")
+        return v
+
+    @field_validator("amount", "amount_percent")
+    @classmethod
+    def _non_neg_g_money(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("window_value")
+    @classmethod
+    def _non_neg_g_window(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("trigger_date", "deadline_stated")
+    @classmethod
+    def _valid_g_date(cls, v):
+        if v in (None, ""):
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
+
+
 async def _get_finding(finding_id: str, user_id: str):
     try:
         oid = ObjectId(finding_id)
@@ -650,6 +712,10 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
             edits = TerminationCorrectionInput(**body).model_dump()
             editable = analysis.TERMINATION_EDITABLE_FIELDS
             recomputed = analysis.recompute_termination_derived(edits)
+        elif ftype in analysis.GENERIC_TYPES:
+            edits = GenericCorrectionInput(**body).model_dump()
+            editable = analysis.GENERIC_EDITABLE_FIELDS
+            recomputed = analysis.recompute_generic_derived(edits, ftype)
         else:
             edits = CorrectionInput(**body).model_dump()
             editable = analysis.EDITABLE_FIELDS
