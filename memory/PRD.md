@@ -160,6 +160,22 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   rank money); negative (non-renewal only -> no finding); ambiguous (early_exit,
   no notice period -> needs_review). 3/3 pass.
 
+### UI implementation pass — dark canonical (2026-06)
+- Flipped design tokens to DARK canonical (index.css :root + tailwind.config).
+  --document stays LIGHT (#E6E1D6) = the only paper surface, reserved for
+  contract evidence/requirements; added document-ink/soft/rule tokens. .cc-clause
+  / .cc-section-ref now use document-ink/soft. Decorative bg-document -> bg-card;
+  genuine evidence panels keep bg-document with document-ink text. Generated
+  draft uses light mono on card.
+- Action Center reworked to 38/62 master-detail (queue left, inline
+  ChecklistPanel right; replaced the modal). Dashboard stays attention-first.
+- CTA respects state: unconfirmed -> "Confirm deadline"; confirmed/corrected +
+  action_required -> "Prepare notice" (-> Action Center); else Confirmed badge.
+- /demo inherits the restyle automatically; Synthetic demo workspace label kept.
+- Verified: Dashboard, Action Center (list + selected detail), mobile viewport
+  render; one real finding's rendered clause == stored sources[].quote EXACTLY
+  (incl. quote marks/dashes/spacing). No new controls added; backend untouched.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

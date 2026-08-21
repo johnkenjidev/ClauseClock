@@ -114,7 +114,7 @@ export default function ContractDetail() {
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" data-testid="contract-delete"
-              className="border-rule text-stamp hover:bg-document rounded-full h-10 px-4 gap-1.5">
+              className="border-rule text-stamp hover:bg-card rounded-full h-10 px-4 gap-1.5">
               <Trash2 className="h-4 w-4" /> Delete
             </Button>
           </AlertDialogTrigger>
@@ -238,7 +238,7 @@ export default function ContractDetail() {
               </div>
 
               {doc.extraction_method === "failed_no_text" ? (
-                <div className="px-5 py-6 flex items-start gap-3 bg-document"
+                <div className="px-5 py-6 flex items-start gap-3 bg-card"
                   data-testid={`document-scanned-${doc.id}`}>
                   <AlertTriangle className="h-5 w-5 text-pending mt-0.5" strokeWidth={2} />
                   <p className="cc-plain-english text-ink">{SCANNED_MESSAGE}</p>

@@ -25,14 +25,20 @@ const longDate = (iso) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 };
 
+const shortDate = (iso) => {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 function Provenance({ sources }) {
   if (!sources?.length) return null;
   return (
     <div className="mt-2 space-y-2">
       {sources.map((s, i) => (
-        <div key={i} className="rounded-md border border-rule bg-document p-3">
+        <div key={i} className="rounded-md border border-document-rule bg-document p-3">
           <span className="cc-section-ref">{s.location}</span>
-          <p className="cc-clause mt-1 text-ink">&ldquo;{s.quote}&rdquo;</p>
+          <p className="cc-clause mt-1">&ldquo;{s.quote}&rdquo;</p>
         </div>
       ))}
     </div>
@@ -132,7 +138,7 @@ function EvidenceBlock({ action, onChanged }) {
       ) : (
         <ul className="mt-2 space-y-1" data-testid={`evidence-list-${action.id}`}>
           {files.map((f, i) => (
-            <li key={i} className="flex items-center justify-between rounded-md border border-rule bg-document px-3 py-2">
+            <li key={i} className="flex items-center justify-between rounded-md border border-rule bg-card px-3 py-2">
               <a href={`${API_BASE}/actions/${action.id}/evidence/${i}`} target="_blank" rel="noreferrer"
                 className="cc-section-ref text-ink hover:text-seal">{f.filename}</a>
               <span className="cc-days-remaining">{(f.size_bytes / 1024).toFixed(0)} KB · SHA-256 {String(f.sha256).slice(0, 10)}… · {String(f.uploaded_at).slice(0, 10)}</span>
@@ -195,17 +201,17 @@ function OutcomeForm({ findingId }) {
   );
 }
 
-function ChecklistDialog({ item, open, onOpenChange }) {
+function ChecklistPanel({ item }) {
   const [checklist, setChecklist] = useState(null);
   const [draft, setDraft] = useState(null);
   const [drafting, setDrafting] = useState(false);
 
   useEffect(() => {
-    if (open && item) {
+    if (item) {
       setChecklist(null); setDraft(null);
       api.get(`/findings/${item.id}/checklist`).then((r) => setChecklist(r.data)).catch(() => {});
     }
-  }, [open, item]);
+  }, [item]);
 
   const generate = async () => {
     setDrafting(true);
@@ -215,15 +221,18 @@ function ChecklistDialog({ item, open, onOpenChange }) {
     } finally { setDrafting(false); }
   };
 
-  if (!item) return null;
+  if (!item) return (
+    <div data-testid="checklist-empty" className="h-full flex items-center justify-center py-24">
+      <p className="cc-days-remaining text-center max-w-xs">Select a finding from the queue to see what your contract requires, draft the notice, and log what you sent.</p>
+    </div>
+  );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="checklist-dialog" className="max-w-2xl max-h-[85vh] overflow-y-auto bg-paper">
-        <DialogHeader><DialogTitle className="cc-finding-title">{item.contract_name} — Notice checklist</DialogTitle></DialogHeader>
-
+    <div data-testid="checklist-panel" className="pb-8">
+      <p className="cc-finding-title">{item.contract_name} — Notice checklist</p>
+      <div className="cc-seal-rule mt-3 mb-5" />
         {!checklist ? <p className="cc-days-remaining mt-2">Loading…</p> : (
           <div className="mt-2 space-y-6">
-            <div className="rounded-md border border-rule bg-document px-4 py-3 flex items-start gap-2">
+            <div className="rounded-md border border-rule bg-card px-4 py-3 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-pending mt-0.5" />
               <p className="cc-days-remaining text-ink" data-testid="checklist-disclaimer">{checklist.disclaimer}</p>
             </div>
@@ -252,11 +261,11 @@ function ChecklistDialog({ item, open, onOpenChange }) {
 
               {draft && (
                 <div className="mt-4" data-testid="notice-draft">
-                  <div className="rounded-md border border-rule bg-document px-4 py-3 mb-3 flex items-start gap-2">
+                  <div className="rounded-md border border-rule bg-card px-4 py-3 mb-3 flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-pending mt-0.5" />
                     <p className="cc-days-remaining text-ink" data-testid="draft-disclaimer">{draft.disclaimer}</p>
                   </div>
-                  <pre className="cc-clause bg-card border border-rule rounded-md p-4 whitespace-pre-wrap">{draft.draft}</pre>
+                  <pre className="font-mono text-[13px] leading-[1.75] text-ink bg-card border border-rule rounded-md p-4 whitespace-pre-wrap" data-testid="draft-text">{draft.draft}</pre>
                 </div>
               )}
             </div>
@@ -265,8 +274,7 @@ function ChecklistDialog({ item, open, onOpenChange }) {
             <OutcomeForm findingId={item.id} />
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
@@ -277,10 +285,10 @@ export default function ActionCenter() {
   useEffect(() => { api.get("/action-center").then((r) => setData(r.data)).catch(() => setData({ buckets: {}, count: 0 })); }, []);
 
   return (
-    <div data-testid={ACTION_CENTER.root} className="max-w-3xl">
+    <div data-testid={ACTION_CENTER.root}>
       <Eyebrow>Action Center</Eyebrow>
       <div className="cc-seal-rule mt-4 mb-6" />
-      <p className="cc-days-remaining mb-8">Confirmed renewals that need a notice. ClauseClock does not send notices — you review and send them yourself.</p>
+      <p className="cc-days-remaining mb-8 max-w-2xl">Confirmed renewals that need a notice. ClauseClock does not send notices — you review and send them yourself.</p>
 
       {data === null && <p className="cc-days-remaining">Loading…</p>}
       {data && data.count === 0 && (
@@ -290,39 +298,48 @@ export default function ActionCenter() {
       )}
 
       {data && data.count > 0 && (
-        <div className="space-y-6">
-          {BUCKETS.map(([key, label]) => {
-            const items = data.buckets[key] || [];
-            if (!items.length) return null;
-            return (
-              <div key={key}>
-                <Eyebrow>{label}</Eyebrow>
-                <ul className="mt-3 space-y-3">
-                  {items.map((it) => (
-                    <li key={it.id}>
-                      <button data-testid={`action-item-${it.id}`} onClick={() => { setActive(it); }}
-                        className="w-full rounded-lg border border-rule bg-card px-5 py-4 text-left hover:bg-document/50 transition-colors flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-ink-soft" />
-                          <div>
-                            <p className="cc-finding-title text-[16px]">{it.contract_name}</p>
-                            <p className="cc-days-remaining mt-0.5">
-                              {(it.extracted?.days_remaining ?? "—")} days · deadline {longDate(it.extracted?.effective_action_deadline)}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="cc-section-ref">Open checklist</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-0 border-t border-rule">
+          {/* Master — prioritised queue (~38%) */}
+          <div className="lg:border-r border-rule py-6 lg:pr-7">
+            {BUCKETS.map(([key, label]) => {
+              const items = data.buckets[key] || [];
+              if (!items.length) return null;
+              return (
+                <div key={key} className="mb-6">
+                  <Eyebrow>{label} · {items.length}</Eyebrow>
+                  <ul className="mt-3 space-y-1">
+                    {items.map((it) => {
+                      const sel = active?.id === it.id;
+                      const dr = it.extracted?.days_remaining;
+                      const urgent = dr != null && dr <= 14;
+                      return (
+                        <li key={it.id}>
+                          <button data-testid={`action-item-${it.id}`} onClick={() => setActive(it)}
+                            className={`w-full rounded-md px-3 py-3 text-left transition-colors flex items-start gap-3 border ${sel ? "bg-card border-rule" : "border-transparent hover:bg-card"}`}>
+                            <div className="w-16 shrink-0">
+                              <p className={`text-[15px] font-semibold leading-none ${urgent ? "text-stamp" : ""}`}>{shortDate(it.extracted?.effective_action_deadline)}</p>
+                              <p className={`text-[11.5px] mt-1 ${urgent ? "text-stamp" : "text-ink-soft"}`}>{dr != null ? `${dr} days` : "no date"}</p>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[14px] font-semibold truncate">{it.contract_name}</p>
+                              <p className="text-[12.5px] text-ink-soft truncate">Automatic renewal · notice required</p>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Detail — selected finding workflow (~62%) */}
+          <div className="lg:pl-8 min-w-0">
+            <ChecklistPanel item={active} />
+          </div>
         </div>
       )}
-
-      <ChecklistDialog item={active} open={!!active} onOpenChange={(v) => !v && setActive(null)} />
     </div>
   );
 }

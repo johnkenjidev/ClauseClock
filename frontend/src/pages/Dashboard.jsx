@@ -113,7 +113,7 @@ export default function Dashboard() {
             variant="outline"
             data-testid={DASHBOARD.emptySample}
             onClick={() => navigate("/app/contracts")}
-            className="rounded-full h-11 px-6 border-rule text-ink hover:bg-document"
+            className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
           >
             View your contracts
           </Button>
@@ -132,7 +132,7 @@ export default function Dashboard() {
       {/* Headline — confirmed value protected (confirmed outcomes only). */}
       <div
         data-testid={DASHBOARD.confirmedValueProtected}
-        className="rounded-lg border border-rule bg-document p-8"
+        className="rounded-lg border border-rule bg-card p-8"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -168,7 +168,7 @@ export default function Dashboard() {
           <ul className="mt-4 space-y-2">
             {reminders.reminders.filter((r) => r.due).map((r) => (
               <li key={r.id}
-                className="flex items-center justify-between rounded-md border border-rule bg-document px-4 py-2 cursor-pointer hover:bg-document/70"
+                className="flex items-center justify-between rounded-md border border-rule bg-card px-4 py-2 cursor-pointer hover:bg-card/70"
                 onClick={() => navigate(`/app/contracts/${r.contract_id}`)}>
                 <span className="cc-plain-english text-ink">{r.contract_name || "Contract"}</span>
                 <span className="cc-days-remaining">deadline {longDate(r.deadline)} · reminder set {r.days_before}d before</span>
@@ -224,7 +224,7 @@ export default function Dashboard() {
               <tbody>
                 {byContract.map((c) => (
                   <tr key={c.contract_id}
-                    className="border-b border-rule/60 last:border-0 cursor-pointer hover:bg-document/50"
+                    className="border-b border-rule/60 last:border-0 cursor-pointer hover:bg-card/50"
                     data-testid={`value-row-${c.contract_id}`}
                     onClick={() => navigate(`/app/contracts/${c.contract_id}`)}>
                     <td className="cc-plain-english px-5 py-3 text-ink">{c.name}</td>
@@ -249,7 +249,7 @@ export default function Dashboard() {
         <Button
           variant="outline"
           onClick={() => navigate("/app/action-center")}
-          className="rounded-full h-11 px-6 border-rule text-ink hover:bg-document"
+          className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
         >
           Go to Action Center
         </Button>

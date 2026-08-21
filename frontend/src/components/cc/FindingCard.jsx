@@ -3,6 +3,7 @@
 // (verbatim, --document ground) grouped by purpose with server-resolved
 // source locations. No plain-English explanations (that is Stage 4).
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Check, Pencil, X, Bell, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
 const STATE_BADGE = {
   confirmed: { label: "Confirmed", cls: "bg-seal text-paper" },
   corrected: { label: "Corrected", cls: "bg-seal text-paper" },
-  dismissed: { label: "Dismissed", cls: "bg-document text-ink-soft border border-rule" },
+  dismissed: { label: "Dismissed", cls: "bg-card text-ink-soft border border-rule" },
 };
 
 const PURPOSE_LABEL = {
@@ -130,6 +131,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const e = finding.extracted || {};
+  const navigate = useNavigate();
   const isPrice = finding.type === "price_increase";
   const isComposite = finding.type === "renewal_with_escalation";
   const isTermination = finding.type === "termination_right";
@@ -375,22 +377,34 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           </div>
         )}
 
-        {/* Stage 3 actions: Confirm / Correct / Dismiss */}
+        {/* Stage 3 actions — CTA respects state (Part 5) */}
         {!readOnly && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
-            onClick={() => act("confirm")}
-            className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
-            <Check className="h-4 w-4" strokeWidth={2.5} /> Confirm
-          </Button>
+          {finding.state === "unconfirmed" ? (
+            <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
+              onClick={() => act("confirm")}
+              className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
+              <Check className="h-4 w-4" strokeWidth={2.5} /> Confirm deadline
+            </Button>
+          ) : finding.action_required ? (
+            <Button size="sm" data-testid="finding-prepare-notice-btn"
+              onClick={() => navigate("/app/action-center")}
+              className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
+              <Check className="h-4 w-4" strokeWidth={2.5} /> Prepare notice
+            </Button>
+          ) : (
+            <span className="inline-flex items-center gap-2 cc-days-remaining text-seal" data-testid="finding-confirmed-badge">
+              <span className="h-1.5 w-1.5 rounded-full bg-seal" /> Confirmed
+            </span>
+          )}
           <Button size="sm" variant="outline" disabled={busy} data-testid="finding-correct-btn"
             onClick={() => setCorrectOpen(true)}
-            className={`rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-document ${isComposite ? "hidden" : ""}`}>
+            className={`rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-card ${isComposite ? "hidden" : ""}`}>
             <Pencil className="h-4 w-4" strokeWidth={2} /> Correct
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} data-testid="finding-dismiss-btn"
             onClick={() => act("dismiss")}
-            className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-stamp hover:bg-document">
+            className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-stamp hover:bg-card">
             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
           </Button>
         </div>
@@ -425,10 +439,10 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 grouped[purpose].map((s, i) => (
                   <div key={`${purpose}-${i}`} data-testid={`clause-${purpose}`}>
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="cc-eyebrow">{PURPOSE_LABEL[purpose]}</span>
+                      <span className="cc-eyebrow !text-document-soft">{PURPOSE_LABEL[purpose]}</span>
                       <span className="cc-section-ref">{s.location}</span>
                     </div>
-                    <p className="cc-clause mt-2 text-ink">&ldquo;{s.quote}&rdquo;</p>
+                    <p className="cc-clause mt-2">&ldquo;{s.quote}&rdquo;</p>
                   </div>
                 ))
               )}
@@ -489,7 +503,7 @@ function RemindersBlock({ findingId, deadline }) {
       {reminders.length > 0 && (
         <ul className="mt-3 space-y-2" data-testid="reminders-list">
           {reminders.map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded-md border border-rule bg-document px-4 py-2">
+            <li key={r.id} className="flex items-center justify-between rounded-md border border-rule bg-card px-4 py-2">
               <span className="cc-days-remaining text-ink" data-testid={`reminder-${r.id}`}>
                 {r.days_before} days before · fires {longDate(r.fire_date)}
               </span>

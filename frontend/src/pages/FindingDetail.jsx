@@ -22,7 +22,7 @@ export default function FindingDetail() {
         </p>
 
         {/* Evidence register — verbatim and documentary (--document ground) */}
-        <div className="mt-6 rounded-md border border-rule bg-document p-5">
+        <div className="mt-6 rounded-md border border-rule bg-card p-5">
           <p className="cc-section-ref">Show the contract language ⌄</p>
           <p className="cc-clause mt-3 text-ink-soft">
             Verbatim clause quotes, grouped by purpose with their section

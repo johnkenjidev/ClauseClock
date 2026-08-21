@@ -38,7 +38,7 @@ export default function Contracts() {
 
         {contracts !== null && contracts.length === 0 && (
           <div className="rounded-lg border border-rule bg-card px-8 py-16 flex flex-col items-center text-center">
-            <div className="h-12 w-12 rounded-full bg-document flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full bg-card flex items-center justify-center">
               <FileText className="h-6 w-6 text-ink-soft" strokeWidth={1.75} />
             </div>
             <p className="cc-plain-english mt-5 max-w-sm">
@@ -58,7 +58,7 @@ export default function Contracts() {
                 <button
                   data-testid={`contract-row-${c.id}`}
                   onClick={() => navigate(`/app/contracts/${c.id}`)}
-                  className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-document/50 transition-colors duration-150"
+                  className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-card/50 transition-colors duration-150"
                 >
                   <div>
                     <p className="cc-finding-title">{c.name}</p>

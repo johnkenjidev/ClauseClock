@@ -8,7 +8,7 @@ export const Eyebrow = ({ children, className }) => (
 
 // The scaffold notice shown on shells that will gain behaviour in later stages.
 export const StageNote = ({ children }) => (
-  <div className="mt-8 inline-flex items-start gap-2 rounded-md border border-rule bg-document px-4 py-3">
+  <div className="mt-8 inline-flex items-start gap-2 rounded-md border border-rule bg-card px-4 py-3">
     <span className="cc-section-ref mt-0.5">§0</span>
     <p className="cc-days-remaining max-w-md text-left">{children}</p>
   </div>

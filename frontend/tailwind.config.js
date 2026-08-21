@@ -20,21 +20,26 @@ module.exports = {
       },
       colors: {
         /* ClauseClock palette (PART 5.2) */
-        paper: '#FAFAF8',
-        document: '#F4F2EC',
-        rule: '#E4E2DB',
-        seal: '#1F6B4A',
-        stamp: '#B3411F',
-        pending: '#8A6410',
+        paper: '#101412',
+        document: {
+          DEFAULT: '#E6E1D6',
+          ink: '#1A1D21',
+          soft: '#5A5F58',
+          rule: '#CFC8B9',
+        },
+        rule: '#28302B',
+        seal: '#4FA97C',
+        stamp: '#E0603C',
+        pending: '#C89A3C',
         ink: {
-          DEFAULT: '#1A1D21',
-          soft: '#545A62',
+          DEFAULT: '#E9E7E1',
+          soft: '#939B95',
         },
         /* shadcn tokens */
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
-          DEFAULT: '#FFFFFF',
+          DEFAULT: '#171C19',
           foreground: 'hsl(var(--card-foreground))'
         },
         popover: {

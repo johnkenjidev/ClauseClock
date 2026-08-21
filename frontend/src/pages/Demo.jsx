@@ -22,7 +22,7 @@ export default function Demo() {
       <div className="flex items-center justify-between">
         <Eyebrow>Overview</Eyebrow>
         <span data-testid={DEMO.banner}
-          className="cc-eyebrow px-3 py-1 rounded-full bg-document border border-rule text-ink-soft">
+          className="cc-eyebrow px-3 py-1 rounded-full bg-card border border-rule text-ink-soft">
           Synthetic demo workspace · read-only
         </span>
       </div>
@@ -54,7 +54,7 @@ export default function Demo() {
             <li key={c.id}>
               <button data-testid={`demo-contract-${c.id}`}
                 onClick={() => navigate(`/demo/contracts/${c.id}`)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-document/50 transition-colors">
+                className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-card/50 transition-colors">
                 <div>
                   <p className="cc-finding-title">{c.name}</p>
                   <p className="cc-days-remaining mt-1">

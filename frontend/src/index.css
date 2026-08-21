@@ -13,37 +13,40 @@
 
 @layer base {
   :root {
-    /* 5.2 Palette — paper, ink, date stamps, certified-mail green */
-    --paper: #FAFAF8;        /* page ground */
-    --card: #FFFFFF;         /* surfaces */
-    --document: #F4F2EC;     /* verbatim clause ground (reads as paper stock) */
-    --ink: #1A1D21;          /* headings, dates, primary text */
-    --ink-soft: #545A62;     /* body, secondary */
-    --rule: #E4E2DB;         /* borders, dividers */
-    --seal: #1F6B4A;         /* confirmed, protected, done (certified-mail green) */
-    --stamp: #B3411F;        /* under 14 days AND action required — ONLY here */
-    --pending: #8A6410;      /* 15–60 days, needs review */
+    /* 5.2 Palette — DARK IS CANONICAL. Near-black with a faint green cast so
+       seal-green sits in the same family as the ground. Light is not built. */
+    --paper: #101412;        /* page ground */
+    --card: #171C19;         /* surfaces */
+    --document: #E6E1D6;     /* the ONLY light surface: contract evidence under a lamp */
+    --document-ink: #1A1D21; /* text on the document surface */
+    --document-soft: #5A5F58;/* secondary text on the document surface */
+    --document-rule: #CFC8B9;/* dividers on the document surface */
+    --ink: #E9E7E1;          /* headings, dates, primary text */
+    --ink-soft: #939B95;     /* body, secondary */
+    --rule: #28302B;         /* borders, dividers */
+    --seal: #4FA97C;         /* confirmed, protected, done (certified-mail green) */
+    --stamp: #E0603C;        /* under 14 days AND action required — ONLY here */
+    --pending: #C89A3C;      /* 15–60 days, needs review */
 
-    /* shadcn tokens mapped onto the ClauseClock palette so UI primitives
-       (buttons, dialogs, inputs) inherit the register automatically. */
-    --background: 60 20% 98%;      /* paper */
-    --foreground: 210 11% 12%;     /* ink */
-    --card-foreground: 210 11% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 11% 12%;
-    --primary: 210 11% 12%;        /* ink */
-    --primary-foreground: 60 20% 98%;
-    --secondary: 48 21% 94%;       /* document */
-    --secondary-foreground: 210 11% 12%;
-    --muted: 48 21% 94%;
-    --muted-foreground: 213 7% 36%; /* ink-soft */
-    --accent: 152 55% 27%;         /* seal */
-    --accent-foreground: 60 20% 98%;
-    --destructive: 13 71% 41%;     /* stamp */
-    --destructive-foreground: 60 20% 98%;
-    --border: 47 18% 87%;          /* rule */
-    --input: 47 18% 87%;
-    --ring: 152 55% 27%;           /* seal */
+    /* shadcn tokens mapped onto the dark ClauseClock palette */
+    --background: 150 11% 7%;      /* paper */
+    --foreground: 48 14% 90%;      /* ink */
+    --card-foreground: 48 14% 90%;
+    --popover: 150 10% 10%;
+    --popover-foreground: 48 14% 90%;
+    --primary: 48 14% 90%;         /* ink (light) */
+    --primary-foreground: 150 11% 7%;
+    --secondary: 150 10% 14%;
+    --secondary-foreground: 48 14% 90%;
+    --muted: 150 10% 14%;
+    --muted-foreground: 140 5% 59%; /* ink-soft */
+    --accent: 150 37% 49%;         /* seal */
+    --accent-foreground: 150 11% 7%;
+    --destructive: 13 72% 56%;     /* stamp */
+    --destructive-foreground: 150 11% 7%;
+    --border: 150 8% 17%;          /* rule */
+    --input: 150 8% 17%;
+    --ring: 150 37% 49%;           /* seal */
     --radius: 0.375rem;
   }
 }
@@ -129,20 +132,21 @@
     color: var(--ink);
   }
 
-  /* verbatim clause text — IBM Plex Mono only. Signals: document, untouched. */
+  /* verbatim clause text — IBM Plex Mono only. Always on the light --document
+     surface, so it uses document-ink to stay readable in the dark interface. */
   .cc-clause {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-weight: 400;
     font-size: 14px;
     line-height: 1.7;
-    color: var(--ink);
+    color: var(--document-ink);
   }
 
   .cc-section-ref {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-weight: 500;
     font-size: 12px;
-    color: var(--ink-soft);
+    color: var(--document-soft);
     font-variant-numeric: tabular-nums;
   }
 

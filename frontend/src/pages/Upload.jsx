@@ -84,7 +84,7 @@ export default function Upload() {
             pickFile(e.dataTransfer.files?.[0]);
           }}
           className={`rounded-lg border-2 border-dashed px-8 py-12 flex flex-col items-center text-center cursor-pointer transition-colors duration-150 ${
-            dragging ? "border-seal bg-document" : "border-rule bg-card hover:bg-document/60"
+            dragging ? "border-seal bg-card" : "border-rule bg-card hover:bg-card/60"
           }`}
         >
           {file ? (
