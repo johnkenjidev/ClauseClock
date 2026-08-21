@@ -38,7 +38,7 @@ function Provenance({ sources }) {
       {sources.map((s, i) => (
         <div key={i} className="rounded-md border border-document-rule bg-document p-3">
           <span className="cc-section-ref">{s.location}</span>
-          <p className="cc-clause mt-1">&ldquo;{s.quote}&rdquo;</p>
+          <p className="cc-clause mt-1">{s.quote}</p>
         </div>
       ))}
     </div>

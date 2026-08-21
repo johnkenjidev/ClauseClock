@@ -442,7 +442,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                       <span className="cc-eyebrow !text-document-soft">{PURPOSE_LABEL[purpose]}</span>
                       <span className="cc-section-ref">{s.location}</span>
                     </div>
-                    <p className="cc-clause mt-2">&ldquo;{s.quote}&rdquo;</p>
+                    <p className="cc-clause mt-2">{s.quote}</p>
                   </div>
                 ))
               )}
