@@ -449,8 +449,11 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
     # Remove prior renewal_notice findings for idempotent re-analysis.
+    # Stage 9: preserve reviewed findings (confirmed/corrected) so re-analysis
+    # never silently overwrites them; only clear regenerable ones.
     await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice"})
+        {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
 
     if not chunks:
         return [], []
@@ -904,7 +907,8 @@ async def run_termination_analysis(db, contract: dict, user_id: str) -> tuple[li
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
     await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "termination_right"})
+        {"contract_id": contract_id, "user_id": user_id, "type": "termination_right",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
     if not chunks:
         return [], []
 
@@ -990,7 +994,8 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
 
     # Idempotent re-analysis.
     await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "price_increase"})
+        {"contract_id": contract_id, "user_id": user_id, "type": "price_increase",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
     if not chunks:
         return [], []
 
@@ -1099,6 +1104,7 @@ def _composite_qualifies(f: dict) -> bool:
     dismissed, and actually supported by validated sources."""
     return (f.get("validation_status") == "validated"
             and f.get("state") != "dismissed"
+            and not f.get("superseded_by_finding_id")
             and bool(f.get("sources")))
 
 

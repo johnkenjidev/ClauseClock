@@ -48,13 +48,14 @@ export default function ContractDetail() {
   const [analyzeError, setAnalyzeError] = useState("");
   const [warnings, setWarnings] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [supersededCount, setSupersededCount] = useState(0);
 
   const load = useCallback(() => {
     api.get(`/contracts/${contractId}`)
       .then((r) => setData(r.data))
       .catch(() => setNotFound(true));
     api.get(`/contracts/${contractId}/findings`)
-      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right")); setStatus(r.data.status); })
+      .then((r) => { setFindings((r.data.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right")); setStatus(r.data.status); setSupersededCount(r.data.superseded_count || 0); })
       .catch(() => {});
     api.get(`/contracts/${contractId}/timeline`)
       .then((r) => setTimeline(r.data.events || []))
@@ -71,6 +72,7 @@ export default function ContractDetail() {
       setFindings((res.findings || []).filter((f) => f.type === "renewal_notice" || f.type === "price_increase" || f.type === "renewal_with_escalation" || f.type === "termination_right"));
       setWarnings(res.warnings || []);
       setStatus("analysed");
+      load();
     } catch (err) {
       setAnalyzeError(err.response?.data?.detail || "Analysis failed. Try again.");
     } finally {
@@ -168,7 +170,25 @@ export default function ContractDetail() {
         </div>
         <div className="cc-seal-rule mt-4 mb-5" />
 
+        {supersededCount > 0 && (
+          <div className="mb-5 rounded-lg border border-pending/40 bg-card px-5 py-4 flex items-start gap-3" data-testid="superseded-notice">
+            <AlertTriangle className="h-4 w-4 text-pending mt-0.5 shrink-0" strokeWidth={2} />
+            <p className="cc-days-remaining text-ink">
+              A newly added document changed {supersededCount} previously reviewed finding{supersededCount === 1 ? "" : "s"}.
+              The updated finding{supersededCount === 1 ? " is" : "s are"} shown below as unconfirmed — review {supersededCount === 1 ? "it" : "them"} against the source clause. Your earlier reviewed version is preserved.
+            </p>
+          </div>
+        )}
+
         {analyzeError && <p className="cc-days-remaining text-stamp mb-4" data-testid="analyze-error">{analyzeError}</p>}
+
+        {data.documents.length === 1 && findings.length > 0 && (
+          <div className="mb-5 rounded-md border border-rule bg-card px-4 py-3" data-testid="single-doc-warning">
+            <p className="cc-days-remaining text-ink-soft">
+              Based on a single document. Adding any amendment, order form, exhibit, or SLA may change this analysis — upload it to re-analyze the full set.
+            </p>
+          </div>
+        )}
 
         {findings.length === 0 && !analyzing && (
           <div className="rounded-lg border border-rule bg-card px-6 py-8">

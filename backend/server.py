@@ -312,15 +312,42 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
         db, contract, user_id)
     term_findings, term_warnings = await analysis.run_termination_analysis(
         db, contract, user_id)
+
+    # Stage 9: reconcile regenerated findings against preserved reviewed ones.
+    # If a reviewed finding changed, keep it and point superseded_by at the new
+    # (unconfirmed) replacement; if unchanged, drop the duplicate replacement.
+    superseded_changes = 0
+    for ftype in ("renewal_notice", "price_increase", "termination_right"):
+        reviewed = await db.findings.find_one({
+            "contract_id": contract_id, "user_id": user_id, "type": ftype,
+            "state": {"$in": ["confirmed", "corrected"]},
+            "superseded_by_finding_id": None})
+        if not reviewed:
+            continue
+        replacement = await db.findings.find_one({
+            "contract_id": contract_id, "user_id": user_id, "type": ftype,
+            "state": "unconfirmed"})
+        if not replacement:
+            continue
+        if (reviewed.get("extracted") or {}) == (replacement.get("extracted") or {}):
+            await db.findings.delete_one({"_id": replacement["_id"]})  # no change
+        else:
+            await db.findings.update_one(
+                {"_id": reviewed["_id"], "user_id": user_id},
+                {"$set": {"superseded_by_finding_id": str(replacement["_id"])}})
+            superseded_changes += 1
+
     await analysis.refresh_rate_shock_composite(db, contract, user_id)
     from models import Finding
     allf = [Finding.from_mongo(f).model_dump()
-            async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id})]
+            async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id})
+            if not f.get("superseded_by_finding_id")]
     findings = analysis.apply_ranking(allf)
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
-    return {"findings": findings, "warnings": warnings + price_warnings + term_warnings}
+    return {"findings": findings, "superseded_changes": superseded_changes,
+            "warnings": warnings + price_warnings + term_warnings}
 
 
 @api_router.get("/contracts/{contract_id}/findings")
@@ -331,10 +358,15 @@ async def list_findings(contract_id: str, user_id: str = Depends(current_user_id
         raise HTTPException(status_code=404, detail="Contract not found.")
     from models import Finding
     findings = []
+    superseded_count = 0
     async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
+        if f.get("superseded_by_finding_id"):
+            superseded_count += 1
+            continue
         findings.append(Finding.from_mongo(f).model_dump())
     findings = analysis.apply_ranking(findings)  # refresh time-dependent rank on read
-    return {"findings": findings, "status": contract.get("status")}
+    return {"findings": findings, "status": contract.get("status"),
+            "superseded_count": superseded_count}
 
 
 # ---- Stage 3: Confirm / Correct / Dismiss --------------------------------

@@ -192,6 +192,24 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   hint that opening a finding reveals the exact contract language.
 - Verified: /, empty dashboard, upload guidance, no-findings state all render.
 
+### Stage 9 — Multi-document re-analysis (2026-06)
+- Adding an amendment/order-form/exhibit/SLA + re-analyze now supersedes rather
+  than overwrites reviewed findings. run_*_analysis delete_many now preserves
+  confirmed/corrected findings (only regenerates unconfirmed/dismissed).
+- analyze endpoint reconciles: if a preserved reviewed finding differs from the
+  regenerated one, it keeps the old (state unchanged) and sets
+  superseded_by_finding_id -> the new UNCONFIRMED replacement; if identical, the
+  duplicate replacement is dropped. Returns superseded_changes.
+- list_findings excludes superseded findings and returns superseded_count.
+  _composite_qualifies now ignores superseded findings (composites recompute).
+- ContractDetail: banner when superseded_count>0 ("a new document changed N
+  previously reviewed findings…") + single-document warning that amendments may
+  change the analysis. Provenance still resolves via chunk_id mapping across the
+  full set.
+- Sanity check passed: primary (60d notice) -> confirm -> add amendment (90d) ->
+  re-analyze: old finding preserved (confirmed, superseded_by set), new
+  unconfirmed replacement (90d) shown; superseded_count=1.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
