@@ -379,7 +379,13 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
 
         {/* Stage 3 actions — CTA respects state (Part 5) */}
         {!readOnly && (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        <div className="mt-6">
+          {finding.state === "unconfirmed" && (
+            <p className="cc-days-remaining mb-3 max-w-xl" data-testid="finding-confirm-hint">
+              ClauseClock won’t track this deadline until you’ve checked it against the source clause.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
           {finding.state === "unconfirmed" ? (
             <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
               onClick={() => act("confirm")}
@@ -407,6 +413,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-stamp hover:bg-card">
             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
           </Button>
+          </div>
         </div>
         )}
 

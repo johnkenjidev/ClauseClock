@@ -71,7 +71,21 @@ export default function Upload() {
   return (
     <div data-testid={UPLOAD.root} className="max-w-xl">
       <Eyebrow>Add a contract</Eyebrow>
-      <div className="cc-seal-rule mt-4 mb-8" />
+      <div className="cc-seal-rule mt-4 mb-6" />
+
+      <div className="mb-8 rounded-lg border border-rule bg-card p-5">
+        <p className="cc-finding-title text-ink text-[16px]">Start with the complete contract set</p>
+        <p className="cc-days-remaining mt-1.5 max-w-lg">
+          Upload the main agreement plus any amendments, order forms, exhibits, or SLAs that may
+          change renewal, pricing, or notice terms.
+        </p>
+        <p className="cc-days-remaining mt-3 text-ink-soft">
+          PDF or DOCX · text-based documents only
+        </p>
+        <p className="cc-days-remaining mt-1">
+          ClauseClock flags anything it cannot verify rather than guessing.
+        </p>
+      </div>
 
       <form onSubmit={submit} className="space-y-6">
         <div

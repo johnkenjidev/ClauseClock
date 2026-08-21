@@ -38,7 +38,10 @@ export default function Demo() {
 
       <div className="mt-10">
         <Eyebrow>What matters</Eyebrow>
-        <div className="cc-seal-rule mt-3 mb-5" />
+        <div className="cc-seal-rule mt-3 mb-2" />
+        <p className="cc-days-remaining mb-5 max-w-xl" data-testid="demo-clause-hint">
+          Open any finding to reveal the exact contract language it came from.
+        </p>
         <div className="space-y-6" data-testid="demo-what-matters">
           {whatMatters.map(({ finding }) => (
             <FindingCard key={finding.id} finding={finding} readOnly />

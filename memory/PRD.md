@@ -176,6 +176,22 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   render; one real finding's rendered clause == stored sources[].quote EXACTLY
   (incl. quote marks/dashes/spacing). No new controls added; backend untouched.
 
+### First-use clarity (2026-06) — frontend only, no backend/data changes
+- Empty Dashboard: orientation copy ("Know what matters before the deadline
+  does." + 3 steps + Add a contract / See a sample workspace -> /demo). No
+  onboarding state; disappears once contracts exist.
+- Upload.jsx: "Start with the complete contract set" guidance + PDF/DOCX
+  text-based-only note.
+- ContractDetail.jsx: analysis progress shows 3 real stages (Reading / Locating /
+  Verifying) with the "we don't estimate missing terms" note; no-findings state
+  uses "Nothing actionable found" copy pointing to the extracted text below.
+- FindingCard: unconfirmed findings show "ClauseClock won't track this deadline
+  until you've checked it against the source clause."
+- Public: new Home.jsx at / (dark, reuses design; Get started + See it working).
+  /login gains a product line + "See it working ->" /demo. /demo gains a one-line
+  hint that opening a finding reveals the exact contract language.
+- Verified: /, empty dashboard, upload guidance, no-findings state all render.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

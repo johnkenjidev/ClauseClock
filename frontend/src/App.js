@@ -13,6 +13,7 @@ import Upload from "@/pages/Upload";
 import Accuracy from "@/pages/Accuracy";
 import Demo from "@/pages/Demo";
 import DemoContractDetail from "@/pages/DemoContractDetail";
+import Home from "@/pages/Home";
 
 function App() {
   return (
@@ -51,8 +52,8 @@ function App() {
           {/* /accuracy — internal operator instrumentation */}
           <Route path="/accuracy" element={<Accuracy />} />
 
-          <Route path="/" element={<Navigate to="/app" replace />} />
-          <Route path="*" element={<Navigate to="/app" replace />} />
+          <Route path="/" element={<Home />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

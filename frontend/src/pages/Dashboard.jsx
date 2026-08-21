@@ -91,17 +91,39 @@ export default function Dashboard() {
     return <div data-testid={DASHBOARD.root} className="max-w-2xl" />;
   }
 
-  // Empty state (PART 5.5) — unchanged for a workspace with no contracts.
+  // Empty state — first-use orientation. Disappears naturally once contracts
+  // exist; no onboarding/dismissal state.
   if (!hasContracts) {
+    const steps = [
+      ["Add the complete contract",
+       "Upload the main agreement plus any amendments, order forms, exhibits, or SLAs that may change its terms."],
+      ["Review what matters",
+       "ClauseClock shows the deadline or financial term beside the exact source language it came from."],
+      ["Act and keep the record",
+       "Confirm or correct the finding, prepare a notice, log what you sent, attach evidence, and record the outcome."],
+    ];
     return (
       <div data-testid={DASHBOARD.root} className="max-w-2xl">
         <Eyebrow>Your workspace</Eyebrow>
         <div className="cc-seal-rule mt-4 mb-6" />
         <h1 className="font-archivo font-semibold text-ink text-3xl sm:text-4xl leading-tight tracking-tight">
-          Add a contract and ClauseClock finds the
-          <br className="hidden sm:block" /> deadlines that cost money.
+          Know what matters before the deadline does.
         </h1>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <p className="cc-plain-english text-ink-soft mt-4 max-w-xl">
+          ClauseClock finds renewal and pricing terms, verifies them against the original
+          contract language, and helps you act on them.
+        </p>
+
+        <div className="mt-8 space-y-5">
+          {steps.map(([title, body]) => (
+            <div key={title} className="rounded-lg border border-rule bg-card p-5">
+              <p className="cc-finding-title text-ink text-[16px]">{title}</p>
+              <p className="cc-days-remaining mt-1.5 max-w-xl">{body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center gap-3">
           <Button
             data-testid={DASHBOARD.emptyAddContract}
             onClick={() => navigate("/app/upload")}
@@ -110,12 +132,12 @@ export default function Dashboard() {
             Add a contract
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             data-testid={DASHBOARD.emptySample}
-            onClick={() => navigate("/app/contracts")}
-            className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
+            onClick={() => navigate("/demo")}
+            className="rounded-full h-11 px-4 text-ink-soft hover:text-ink hover:bg-card"
           >
-            View your contracts
+            See a sample workspace →
           </Button>
         </div>
       </div>

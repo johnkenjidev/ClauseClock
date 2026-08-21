@@ -3,7 +3,7 @@
 // with location markers (inspectable, for extraction-quality testing).
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch } from "lucide-react";
+import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -172,19 +172,44 @@ export default function ContractDetail() {
 
         {findings.length === 0 && !analyzing && (
           <div className="rounded-lg border border-rule bg-card px-6 py-8">
-            <p className="cc-plain-english text-ink-soft">
-              {warnings.length > 0
-                ? warnings[0]
-                : status === "analysed"
-                ? "No renewal, notice or price-increase language was found in this contract."
-                : "Run analysis to find renewal deadlines, price increases, and the clauses that prove them."}
-            </p>
+            {status === "analysed" || warnings.length > 0 ? (
+              <>
+                <p className="cc-finding-title text-ink text-[16px]">Nothing actionable found</p>
+                <p className="cc-plain-english text-ink-soft mt-2">
+                  {warnings.length > 0
+                    ? warnings[0]
+                    : "No renewal or price-increase terms were found in this document."}
+                </p>
+                <p className="cc-days-remaining mt-3 max-w-xl">
+                  ClauseClock currently looks for renewal deadlines and price-increase terms or
+                  objection windows. If you expected one, review the extracted text below to make
+                  sure the relevant page was read correctly.
+                </p>
+              </>
+            ) : (
+              <p className="cc-plain-english text-ink-soft">
+                Run analysis to find renewal deadlines, price increases, and the clauses that prove them.
+              </p>
+            )}
           </div>
         )}
 
         {analyzing && (
-          <div className="rounded-lg border border-rule bg-card px-6 py-8">
-            <p className="cc-days-remaining">Locating relevant clauses, then extracting and verifying each source…</p>
+          <div className="rounded-lg border border-rule bg-card px-6 py-8" data-testid="analysis-progress">
+            <ol className="space-y-3">
+              {["Reading the document",
+                "Locating renewal and pricing language",
+                "Verifying quotes against the original"].map((stage) => (
+                <li key={stage} className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 text-seal animate-spin" strokeWidth={2} />
+                  <span className="cc-plain-english text-ink">{stage}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="cc-days-remaining mt-4 max-w-xl">
+              We don’t estimate missing terms. If something can’t be verified, ClauseClock will
+              flag it for review.
+            </p>
           </div>
         )}
 

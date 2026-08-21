@@ -45,7 +45,19 @@ export default function Auth({ mode = "login" }) {
         </div>
 
         <Eyebrow>{isLogin ? "Sign in" : "Create account"}</Eyebrow>
-        <div className="cc-seal-rule mt-3 mb-7" />
+        <div className="cc-seal-rule mt-3 mb-4" />
+        {isLogin && (
+          <>
+            <p className="cc-days-remaining mb-4 max-w-sm" data-testid="auth-product-line">
+              ClauseClock finds renewal and pricing terms, verifies them against the original
+              contract language, and helps you act before the deadline.
+            </p>
+            <Link to="/demo" data-testid="auth-see-demo"
+              className="inline-block cc-days-remaining text-seal underline underline-offset-2 mb-6">
+              See it working →
+            </Link>
+          </>
+        )}
 
         <form onSubmit={submit} className="space-y-5" data-testid="auth-form">
           <div className="space-y-2">
