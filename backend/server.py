@@ -792,7 +792,7 @@ async def action_center(user_id: str = Depends(current_user_id)):
         "action_required": True,
         "$or": [
             {"type": "renewal_notice"},
-            {"type": {"$in": analysis.GENERIC_TYPES},
+            {"type": {"$in": analysis.GENERIC_TYPES + ["termination_right", "price_increase"]},
              "validation_status": "validated",
              "superseded_by_finding_id": None,
              "extracted.effective_action_deadline": {"$ne": None}},

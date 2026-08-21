@@ -879,8 +879,26 @@ def compute_termination(extracted: dict, today: date):
     elif fee is not None:
         money_amount, money_kind = float(fee), "cost"
 
-    # A standing right to exit is not itself a dated action.
-    return out, notes, needs_review, money_amount, money_kind, False
+    # Actionable notice deadline: to exit at the earliest permitted date you must
+    # give notice by (earliest exit - notice period). Deterministic; computed
+    # ONLY when an early-exit right, a notice period, AND a concrete earliest-exit
+    # date are all known. Otherwise the right stays a standing (non-dated) right.
+    action_required = False
+    npv = extracted.get("notice_period_value")
+    npu = extracted.get("notice_period_unit")
+    if ttype in ("for_convenience", "early_exit") and ed and npv and npu:
+        try:
+            exit_date = datetime.strptime(ed, "%Y-%m-%d").date()
+            rel = normalize_unit(npv, npu)
+            if rel is not None:
+                deadline = exit_date - rel
+                out["effective_action_deadline"] = deadline.isoformat()
+                out["days_remaining"] = (deadline - today).days
+                action_required = True
+        except (ValueError, TypeError):
+            pass
+
+    return out, notes, needs_review, money_amount, money_kind, action_required
 
 
 def recompute_termination_derived(edits: dict, today: date = None) -> dict:

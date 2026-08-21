@@ -213,6 +213,28 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
+### Stage 8/10 — Action Center: termination + price_increase (2026-06)
+- /action-center eligibility $or extended to also include termination_right and
+  price_increase under the SAME generic rule (confirmed/corrected, validated,
+  action_required, deterministic extracted.effective_action_deadline, not
+  dismissed, not superseded). renewal branch still identical. Composite
+  renewal_with_escalation intentionally NOT added (it is a derived insight, not
+  an independent action).
+- price_increase already produces effective_action_deadline + action_required
+  from an objection window + reference date, so it qualifies with no compute
+  change. termination_right was a standing right (action_required always False);
+  added a tightly-gated deterministic notice deadline in compute_termination:
+  when an early-exit right (for_convenience|early_exit) has BOTH a notice period
+  AND a concrete earliest-exit date, effective_action_deadline = earliest exit -
+  notice period and action_required=True. Otherwise unchanged (no deadline).
+- ActionCenter.jsx: TYPE_LABEL entries for termination_right / price_increase;
+  both reuse the existing non-renewal detail workflow (deadline, plain-English,
+  suggested action, provenance, Log Action, Record Outcome) — no new UI path.
+- Sanity (no testing_agent): corrected termination (for_convenience, 60d notice,
+  earliest exit 2026-12-19 -> deadline 2026-10-20) APPEARS; corrected
+  price_increase (3% fixed, 30d objection, price change 2026-11-19 -> objection
+  deadline 2026-10-20) APPEARS; renewal preserved; composite not listed.
+
 ### Stage 8/10 — Action Center wiring for obligation types (2026-06)
 - /action-center now surfaces the 6 obligation types alongside renewals, via a
   generic eligibility rule (single query extended with $or; renewal branch left

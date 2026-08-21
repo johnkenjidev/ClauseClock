@@ -21,6 +21,8 @@ const BUCKETS = [
 
 const TYPE_LABEL = {
   renewal_notice: "Automatic renewal · notice required",
+  termination_right: "Termination right · notice",
+  price_increase: "Price increase · objection",
   service_credit: "Service credit · claim",
   invoice_dispute: "Invoice dispute · deadline",
   warranty_claim: "Warranty claim · deadline",
