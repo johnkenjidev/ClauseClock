@@ -118,6 +118,16 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   pending split). Screenshots confirmed dashboard + finding card + timeline. No
   new clause extraction / refactors.
 
+### Stage 7A — real-contract accuracy repair (2026-06)
+- analysis.py: (1) _strip_unsupported_objection — objection fields survive only
+  with a validated `objection` source, else cleared (no deadline/action; never
+  inferred from a percentage/number); (2) refine_increase_semantics — precise
+  regex floor/ceiling detection: "higher of X%/index" (floor) & collars ->
+  formula (floor preserved, no projection); "lesser of"/pure ceiling -> capped;
+  index-only -> formula. Wired into run_price_increase_analysis before
+  compute_price. Strict quote validation unchanged; no fuzzy matching.
+- Re-ran the same 10 SEC EDGAR contracts through the fixed pipeline: 10/10 PASS.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

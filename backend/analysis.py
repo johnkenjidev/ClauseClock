@@ -723,6 +723,74 @@ def recompute_price_derived(edits: dict, current_annual_value, today: date = Non
     }
 
 
+OBJECTION_FIELDS = (
+    "objection_window_value", "objection_window_unit", "objection_basis",
+    "objection_measured_to", "objection_deadline_stated",
+    "objection_recipient", "objection_method",
+)
+
+_INDEX_TERMS = ("consumer price index", "cpi", "rpi", "cost of living",
+                "cost-of-living", "price index")
+_CEIL_RE = re.compile(
+    r"lesser of|whichever is (?:less|lower)|not to exceed|shall not exceed|"
+    r"no(?:t)? more than|never (?:be )?more than|no greater than|"
+    r"in no event[^.]{0,60}(?:more than|exceed)", re.I)
+_FLOOR_RE = re.compile(
+    r"higher of|greater of|no(?:t)? less than|never (?:be )?less than|"
+    r"whichever is (?:greater|higher)", re.I)
+
+
+def _strip_unsupported_objection(extracted: dict, valid_purposes: set) -> bool:
+    """An objection window/method may survive ONLY with a validated `objection`
+    source. Otherwise clear all objection fields so no deadline/action can be
+    derived from them. Never infer a window from a percentage or other number."""
+    if "objection" in valid_purposes:
+        return False
+    stripped = any(extracted.get(k) is not None for k in OBJECTION_FIELDS)
+    for k in OBJECTION_FIELDS:
+        extracted[k] = None
+    return stripped
+
+
+def refine_increase_semantics(extracted: dict, sources: list) -> None:
+    """Correct floor/cap/collar semantics deterministically from grounded text
+    (validated increase quotes + the extracted formula). Precise keyword/regex
+    logic only — no fuzzy matching, no new projection logic.
+
+      - "higher of X% or index" (floor) or a collar (floor+ceiling) -> formula;
+        preserve the floor/collar in increase_formula; no projected amount.
+      - "lesser of X% or index" / a pure ceiling -> capped.
+      - index-only language -> formula.
+    """
+    itype = extracted.get("increase_type")
+    if itype not in ("capped", "formula", "fixed_automatic", "unspecified", None):
+        return
+    grounded = [s.get("quote") for s in sources
+                if s.get("purpose") in ("increase", "increase_basis") and s.get("quote")]
+    blob = " ".join([extracted.get("increase_formula") or ""] + grounded)
+    if not blob.strip():
+        return
+    low = blob.lower()
+    has_index = any(t in low for t in _INDEX_TERMS)
+    has_floor = bool(_FLOOR_RE.search(blob))
+    has_ceiling = bool(_CEIL_RE.search(blob))
+
+    def to_formula():
+        extracted["increase_type"] = "formula"
+        if not (extracted.get("increase_formula") or "").strip() and grounded:
+            extracted["increase_formula"] = grounded[0]
+        extracted["increase_percent"] = None
+        extracted["increase_amount"] = None
+
+    if has_floor and (has_index or has_ceiling):
+        to_formula()                       # floor ("higher of") or collar
+    elif has_ceiling and not has_floor:
+        extracted["increase_type"] = "capped"
+    elif has_index and not has_ceiling and not has_floor:
+        to_formula()                       # index-only
+
+
+
 async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
     """Orchestrate the price_increase pipeline and persist finding(s)."""
     from models import Finding, FindingSource
@@ -767,6 +835,11 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
         needs_review = True
         validation_notes.append(
             "Missing validated source for: " + ", ".join(sorted(missing_required)))
+
+    # Objection window/method survives only with a validated objection source.
+    _strip_unsupported_objection(extracted, valid_purposes)
+    # Correct floor/cap/collar semantics from grounded text before any math.
+    refine_increase_semantics(extracted, validated)
 
     doc_ids_in_sources = {s["document_id"] for s in validated}
     confidence = extracted.get("confidence") or "low"
