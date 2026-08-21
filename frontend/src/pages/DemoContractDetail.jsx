@@ -1,4 +1,4 @@
-// /demo/contracts/:id — read-only synthetic contract detail (Stage 5).
+// /demo/contracts/:id — read-only synthetic contract detail.
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -19,19 +19,19 @@ export default function DemoContractDetail() {
 
   return (
     <div data-testid="demo-contract-detail" className="max-w-3xl">
-      <button onClick={() => navigate("/demo")}
+      <button onClick={() => navigate("/demo/contracts")}
         className="cc-eyebrow text-ink-soft hover:text-ink flex items-center gap-1.5 mb-6">
-        <ArrowLeft className="h-4 w-4" /> Demo overview
+        <ArrowLeft className="h-4 w-4" /> Demo contracts
       </button>
 
       <Eyebrow>Contract · synthetic</Eyebrow>
       <h1 className="cc-finding-title text-2xl mt-2">{contract.name}</h1>
       <p className="cc-days-remaining mt-1">
-        {contract.counterparty} · <span className="cc-money">{money(contract.annual_value, contract.currency)}</span> · Source: entered by you
+        {contract.counterparty} · <span className="cc-money">{money(contract.annual_value, contract.currency)}</span> · Source: synthetic demo data
       </p>
 
       <div className="mt-8">
-        <Eyebrow>What matters — renewals</Eyebrow>
+        <Eyebrow>What matters</Eyebrow>
         <div className="cc-seal-rule mt-4 mb-5" />
         <div className="space-y-6">
           {contract.findings.map((f) => <FindingCard key={f.id} finding={f} readOnly />)}

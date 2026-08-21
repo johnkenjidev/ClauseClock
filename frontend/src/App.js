@@ -12,7 +12,9 @@ import ActionCenter from "@/pages/ActionCenter";
 import Upload from "@/pages/Upload";
 import Accuracy from "@/pages/Accuracy";
 import Demo from "@/pages/Demo";
+import DemoContracts from "@/pages/DemoContracts";
 import DemoContractDetail from "@/pages/DemoContractDetail";
+import DemoActionCenter from "@/pages/DemoActionCenter";
 import Home from "@/pages/Home";
 
 function App() {
@@ -41,12 +43,12 @@ function App() {
             <Route path="upload" element={<Upload />} />
           </Route>
 
-          {/* /demo — no auth, read-only synthetic workspace (PART 5.9) */}
+          {/* /demo — no auth, read-only synthetic workspace */}
           <Route path="/demo" element={<AppShell demo />}>
             <Route index element={<Demo />} />
-            <Route path="contracts" element={<Demo />} />
+            <Route path="contracts" element={<DemoContracts />} />
             <Route path="contracts/:contractId" element={<DemoContractDetail />} />
-            <Route path="actions" element={<Demo />} />
+            <Route path="actions" element={<DemoActionCenter />} />
           </Route>
 
           {/* /accuracy — internal operator instrumentation */}
