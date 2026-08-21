@@ -213,6 +213,25 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
+### Stage 8/10 — Action Center wiring for obligation types (2026-06)
+- /action-center now surfaces the 6 obligation types alongside renewals, via a
+  generic eligibility rule (single query extended with $or; renewal branch left
+  byte-for-byte identical). An obligation joins ONLY when: state confirmed/
+  corrected, action_required True, validation_status validated, a computed
+  extracted.effective_action_deadline exists, and it is not superseded. This
+  naturally covers "notice_requirement only when materially actionable" (a
+  notice_requirement is action_required only when a deadline was computed).
+  needs_review / dismissed / superseded / informational / no-deadline findings
+  are excluded. Existing grouping (urgent/next_30_days/later), ranking, and
+  Stage 9 supersession behaviour preserved.
+- ActionCenter.jsx: per-type queue labels; the renewal Notice Checklist + non-
+  renewal draft remain renewal-only; obligation findings reuse the SAME detail
+  workflow (deadline, plain-English, suggested action, validated-source
+  provenance, Log Action, Record Outcome, Evidence) — no parallel workflow.
+- Sanity (no testing_agent, per user): corrected invoice_dispute (trigger +
+  30d window -> validated deadline) APPEARS in Action Center; confirmed-but-
+  needs_review warranty_claim does NOT; renewal still appears. UI verified.
+
 ### Stage 8/10 — Final build pass: 6 obligation finding types (2026-06)
 - Added service_credit, invoice_dispute, notice_requirement, fee_or_penalty,
   rebate_or_refund, warranty_claim via ONE shared "obligations" pipeline

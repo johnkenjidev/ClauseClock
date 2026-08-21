@@ -780,13 +780,23 @@ async def dismiss_finding(finding_id: str, user_id: str = Depends(current_user_i
 
 @api_router.get("/action-center")
 async def action_center(user_id: str = Depends(current_user_id)):
-    """Confirmed, actionable renewal findings grouped by urgency (server-side)."""
+    """Confirmed, actionable findings with a deterministic deadline, grouped by
+    urgency (server-side). Renewal behaviour is unchanged; the 6 obligation
+    types join only when validated, actionable, with a computed action deadline,
+    and not superseded."""
     from models import Finding
     items = []
     async for f in db.findings.find({
-        "user_id": user_id, "type": "renewal_notice",
+        "user_id": user_id,
         "state": {"$in": ["confirmed", "corrected"]},
         "action_required": True,
+        "$or": [
+            {"type": "renewal_notice"},
+            {"type": {"$in": analysis.GENERIC_TYPES},
+             "validation_status": "validated",
+             "superseded_by_finding_id": None,
+             "extracted.effective_action_deadline": {"$ne": None}},
+        ],
     }):
         fd = Finding.from_mongo(f).model_dump()
         fd = analysis.apply_ranking([fd])[0]

@@ -19,6 +19,16 @@ const BUCKETS = [
   ["later", "Later"],
 ];
 
+const TYPE_LABEL = {
+  renewal_notice: "Automatic renewal · notice required",
+  service_credit: "Service credit · claim",
+  invoice_dispute: "Invoice dispute · deadline",
+  warranty_claim: "Warranty claim · deadline",
+  rebate_or_refund: "Rebate / refund · claim",
+  fee_or_penalty: "Fee / penalty · deadline",
+  notice_requirement: "Notice requirement · deadline",
+};
+
 const longDate = (iso) => {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-").map(Number);
@@ -205,11 +215,14 @@ function ChecklistPanel({ item }) {
   const [checklist, setChecklist] = useState(null);
   const [draft, setDraft] = useState(null);
   const [drafting, setDrafting] = useState(false);
+  const isRenewal = item?.type === "renewal_notice";
 
   useEffect(() => {
-    if (item) {
+    if (item && item.type === "renewal_notice") {
       setChecklist(null); setDraft(null);
       api.get(`/findings/${item.id}/checklist`).then((r) => setChecklist(r.data)).catch(() => {});
+    } else {
+      setChecklist(null); setDraft(null);
     }
   }, [item]);
 
@@ -226,6 +239,41 @@ function ChecklistPanel({ item }) {
       <p className="cc-days-remaining text-center max-w-xs">Select a finding from the queue to see what your contract requires, draft the notice, and log what you sent.</p>
     </div>
   );
+
+  // Obligation finding types — reuse the same action workflow (log action,
+  // record outcome, evidence) grounded in the finding's validated sources.
+  // No renewal Notice Checklist / non-renewal draft (renewal-only).
+  if (!isRenewal) {
+    const e = item.extracted || {};
+    return (
+      <div data-testid="checklist-panel" className="pb-8">
+        <p className="cc-finding-title">{item.contract_name} — {TYPE_LABEL[item.type] || "Action required"}</p>
+        <div className="cc-seal-rule mt-3 mb-5" />
+        <div className="mt-2 space-y-6">
+          <div>
+            <Eyebrow>Deadline</Eyebrow>
+            <p className="cc-plain-english mt-1" data-testid="obligation-deadline">
+              {longDate(e.effective_action_deadline)}
+              {e.days_remaining != null ? ` · ${e.days_remaining} days remaining` : ""}
+            </p>
+          </div>
+          {item.plain_english && (
+            <div><Eyebrow>In plain English</Eyebrow>
+              <p className="cc-plain-english mt-1" data-testid="obligation-plain-english">{item.plain_english}</p></div>
+          )}
+          {item.suggested_action && (
+            <div><Eyebrow>Suggested action</Eyebrow>
+              <p className="cc-plain-english mt-1">{item.suggested_action}</p></div>
+          )}
+          <div><Eyebrow>From the contract</Eyebrow>
+            <Provenance sources={item.sources} /></div>
+          <LogActionForm findingId={item.id} contractMethod={null} />
+          <OutcomeForm findingId={item.id} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div data-testid="checklist-panel" className="pb-8">
       <p className="cc-finding-title">{item.contract_name} — Notice checklist</p>
@@ -288,12 +336,12 @@ export default function ActionCenter() {
     <div data-testid={ACTION_CENTER.root}>
       <Eyebrow>Action Center</Eyebrow>
       <div className="cc-seal-rule mt-4 mb-6" />
-      <p className="cc-days-remaining mb-8 max-w-2xl">Confirmed renewals that need a notice. ClauseClock does not send notices — you review and send them yourself.</p>
+      <p className="cc-days-remaining mb-8 max-w-2xl">Confirmed findings with a deadline that need action — renewals to give notice on, plus claims, disputes and deadlines from your contracts. ClauseClock does not send anything — you review and act yourself.</p>
 
       {data === null && <p className="cc-days-remaining">Loading…</p>}
       {data && data.count === 0 && (
         <div className="rounded-lg border border-rule bg-card px-6 py-10 text-center">
-          <p className="cc-plain-english text-ink-soft">No confirmed renewal actions yet. Confirm an automatic-renewal finding to see it here.</p>
+          <p className="cc-plain-english text-ink-soft">No confirmed actions yet. Confirm an actionable finding with a deadline to see it here.</p>
         </div>
       )}
 
@@ -322,7 +370,7 @@ export default function ActionCenter() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-[14px] font-semibold truncate">{it.contract_name}</p>
-                              <p className="text-[12.5px] text-ink-soft truncate">Automatic renewal · notice required</p>
+                              <p className="text-[12.5px] text-ink-soft truncate">{TYPE_LABEL[it.type] || "Action required"}</p>
                             </div>
                           </button>
                         </li>
