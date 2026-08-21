@@ -31,14 +31,14 @@ export default function Home() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-24">
-        <Eyebrow>Contract renewals &amp; pricing</Eyebrow>
+        <Eyebrow>Contract deadlines &amp; obligations</Eyebrow>
         <div className="cc-seal-rule mt-4 mb-6" />
         <h1 className="font-archivo font-semibold text-ink text-4xl sm:text-5xl leading-[1.08] tracking-tight">
           Know what matters<br className="hidden sm:block" /> before the deadline does.
         </h1>
         <p className="cc-plain-english text-ink-soft mt-6 max-w-xl">
-          ClauseClock finds renewal and pricing terms, verifies them against the original
-          contract language, and helps you act on them.
+          ClauseClock finds renewal, pricing, termination, claim, dispute, and notice obligations,
+          verifies every finding against the contract language, and turns confirmed deadlines into a clear action queue.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">
