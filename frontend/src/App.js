@@ -38,6 +38,7 @@ function App() {
             <Route path="contracts/:contractId" element={<ContractDetail />} />
             <Route path="findings/:findingId" element={<FindingDetail />} />
             <Route path="actions" element={<ActionCenter />} />
+            <Route path="action-center" element={<ActionCenter />} />
             <Route path="upload" element={<Upload />} />
           </Route>
 
