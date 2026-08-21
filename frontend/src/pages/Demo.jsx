@@ -1,7 +1,6 @@
-// /demo — public, read-only synthetic ClauseClock workspace (Stage 5).
-// No auth, no backend. A mature portfolio opening on ranked What Matters,
-// led by an urgent automatic-renewal finding 11 days out. Read-only: no
-// Confirm/Correct/Dismiss, no Stage 6 actions/evidence/outcomes.
+// /demo — public, read-only synthetic ClauseClock workspace.
+// No auth and no real customer data. It intentionally exercises the same
+// FindingCard used by the authenticated product.
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
@@ -15,11 +14,11 @@ const money = (v, cur) =>
 
 export default function Demo() {
   const navigate = useNavigate();
-  const { contracts, whatMatters } = useMemo(() => buildDemoWorkspace(new Date()), []);
+  const { contracts, whatMatters, actionItems } = useMemo(() => buildDemoWorkspace(new Date()), []);
 
   return (
     <div data-testid={DEMO.root} className="max-w-3xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <Eyebrow>Overview</Eyebrow>
         <span data-testid={DEMO.banner}
           className="cc-eyebrow px-3 py-1 rounded-full bg-card border border-rule text-ink-soft">
@@ -29,18 +28,19 @@ export default function Demo() {
       <div className="cc-seal-rule mt-4 mb-6" />
 
       <h1 className="font-archivo font-semibold text-ink text-2xl sm:text-3xl leading-tight">
-        {contracts.length} contracts monitored. One needs your attention.
+        {contracts.length} contracts monitored. {actionItems.length} confirmed actions have a deadline.
       </h1>
       <p className="cc-plain-english mt-3 text-ink-soft">
-        This is a sample portfolio a few months into use — most contracts are calm,
-        one automatic renewal is due soon. All data is synthetic.
+        This sample portfolio shows automatic renewal, a price increase, an invoice-dispute window,
+        an early-exit right, a service-credit opportunity, and one finding ClauseClock refuses to date
+        until a missing fact is confirmed. All data is synthetic.
       </p>
 
       <div className="mt-10">
         <Eyebrow>What matters</Eyebrow>
         <div className="cc-seal-rule mt-3 mb-2" />
         <p className="cc-days-remaining mb-5 max-w-xl" data-testid="demo-clause-hint">
-          Open any finding to reveal the exact contract language it came from.
+          Open any finding to reveal the exact synthetic contract language that supports it.
         </p>
         <div className="space-y-6" data-testid="demo-what-matters">
           {whatMatters.map(({ finding }) => (
@@ -50,7 +50,13 @@ export default function Demo() {
       </div>
 
       <div className="mt-12">
-        <Eyebrow>All contracts</Eyebrow>
+        <div className="flex items-center justify-between gap-4">
+          <Eyebrow>All contracts</Eyebrow>
+          <button onClick={() => navigate("/demo/actions")}
+            className="cc-section-ref text-seal hover:underline">
+            Open Action Center →
+          </button>
+        </div>
         <div className="cc-seal-rule mt-3 mb-5" />
         <ul className="divide-y divide-rule rounded-lg border border-rule bg-card overflow-hidden">
           {contracts.map((c) => (
