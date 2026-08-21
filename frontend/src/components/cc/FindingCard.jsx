@@ -105,6 +105,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [busy, setBusy] = useState(false);
   const e = finding.extracted || {};
   const isPrice = finding.type === "price_increase";
+  const isComposite = finding.type === "renewal_with_escalation";
   const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
   const badge = STATE_BADGE[finding.state];
@@ -139,7 +140,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
       <div className="p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="cc-eyebrow">{isPrice ? "Price increase" : "Automatic renewal"}</p>
+            <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isPrice ? "Price increase" : "Automatic renewal"}</p>
             {finding.rank_category && (
               <span data-testid="finding-rank-category"
                 className="inline-block cc-eyebrow mt-1 text-ink-soft">
@@ -194,7 +195,39 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         <div className={`mt-5 h-[3px] w-11 rounded ${TONE_RULE[t]}`} />
 
         {/* Key facts */}
-        {isPrice ? (
+        {isComposite ? (
+          <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <Fact label="Renews on"
+              value={longDate(e.next_renewal_date) || "Not calculated"} testid="composite-next-renewal" />
+            <Fact label="Increase type"
+              value={INCREASE_TYPE_LABEL[e.increase_type] || "Not stated"} testid="composite-increase-type" />
+            {e.increase_type === "fixed_automatic" && e.next_term_amount != null && (
+              <>
+                <Fact label="Next-term value"
+                  value={<span className="cc-money">{money(e.next_term_amount, finding.money_currency)}</span>}
+                  testid="composite-next-term-value" />
+                <Fact label="Increase (delta)"
+                  value={<span className="cc-money">+{money(e.escalation_delta, finding.money_currency)}</span>}
+                  testid="composite-delta" />
+              </>
+            )}
+            {e.increase_type === "capped" && (
+              <Fact label="Maximum permitted"
+                value={e.max_permitted_amount != null
+                  ? <span className="cc-money">{money(e.max_permitted_amount, finding.money_currency)} <span className="text-ink-soft">(max, not guaranteed)</span></span>
+                  : `Up to ${e.increase_percent}% (max, not guaranteed)`}
+                testid="composite-max-permitted" />
+            )}
+            {e.increase_type === "formula" && (
+              <Fact label="Escalation formula"
+                value={e.increase_formula || "Formula (not stated)"} testid="composite-formula" />
+            )}
+            {e.effective_action_deadline && (
+              <Fact label="Notice deadline"
+                value={longDate(e.effective_action_deadline)} testid="composite-notice-deadline" />
+            )}
+          </dl>
+        ) : isPrice ? (
           <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
             <Fact label="Increase type"
               value={INCREASE_TYPE_LABEL[e.increase_type] || "Not stated"} testid="finding-increase-type" />
@@ -289,7 +322,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           </Button>
           <Button size="sm" variant="outline" disabled={busy} data-testid="finding-correct-btn"
             onClick={() => setCorrectOpen(true)}
-            className="rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-document">
+            className={`rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-document ${isComposite ? "hidden" : ""}`}>
             <Pencil className="h-4 w-4" strokeWidth={2} /> Correct
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} data-testid="finding-dismiss-btn"

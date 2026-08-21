@@ -137,6 +137,7 @@ FindingType = Literal[
     "renewal_notice",
     "termination_right",
     "price_increase",
+    "renewal_with_escalation",
     "service_credit",
     "invoice_dispute",
     "rebate_or_refund",

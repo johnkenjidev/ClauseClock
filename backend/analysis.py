@@ -900,6 +900,148 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
     return [fd], []
 
 
+# --------------------------------------------------------------------------
+# Stage 7B — Rate Shock Composite (renewal_with_escalation)
+# --------------------------------------------------------------------------
+COMPOSITE_TYPE = "renewal_with_escalation"
+_CONF_ORDER = {"low": 0, "medium": 1, "high": 2}
+
+
+def _composite_qualifies(f: dict) -> bool:
+    """A constituent may feed the composite only if it is validated, not
+    dismissed, and actually supported by validated sources."""
+    return (f.get("validation_status") == "validated"
+            and f.get("state") != "dismissed"
+            and bool(f.get("sources")))
+
+
+def _union_sources(*groups) -> list:
+    seen, out = set(), []
+    for g in groups:
+        for s in g or []:
+            key = (s.get("chunk_id"), s.get("purpose"), s.get("quote"))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(s)
+    return out
+
+
+async def refresh_rate_shock_composite(db, contract: dict, user_id: str):
+    """Rebuild (or remove) the renewal_with_escalation composite for a contract.
+    Server-derived only — unions ALREADY-validated constituent sources, never
+    invents quotes or runs the LLM. Removes itself unless BOTH a validated
+    renewal and a validated price_increase exist."""
+    from models import Finding, FindingSource, utc_now_iso
+
+    contract_id = str(contract["_id"])
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": COMPOSITE_TYPE})
+
+    renewal = price = None
+    async for f in db.findings.find(
+            {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice"}):
+        rf = Finding.from_mongo(f).model_dump()
+        if _composite_qualifies(rf):
+            renewal = rf
+            break
+    async for f in db.findings.find(
+            {"contract_id": contract_id, "user_id": user_id, "type": "price_increase"}):
+        pf = Finding.from_mongo(f).model_dump()
+        if _composite_qualifies(pf):
+            price = pf
+            break
+    if not (renewal and price):
+        return None
+
+    re_, pe = renewal["extracted"] or {}, price["extracted"] or {}
+    itype = pe.get("increase_type")
+    pct = pe.get("increase_percent")
+
+    # Escalation figures — strictly what the price finding already supports.
+    next_term = pe.get("next_term_amount") if itype == "fixed_automatic" else None
+    max_permitted = pe.get("max_permitted_amount") if itype == "capped" else None
+    # Only fixed_automatic and capped carry a money figure; formula/collar/floor
+    # never projects an amount until the external index value is known.
+    money_amount = price.get("money_amount") if itype in ("fixed_automatic", "capped") else None
+    money_kind = "cost" if money_amount is not None else None
+    currency = price.get("money_currency") or contract.get("currency") or "USD"
+
+    composite_extracted = {
+        "next_renewal_date": re_.get("next_renewal_date"),
+        "renewal_type": re_.get("renewal_type"),
+        "effective_action_deadline": re_.get("effective_action_deadline"),
+        "earliest_action_date": re_.get("earliest_action_date"),
+        "notice_days_min": re_.get("notice_days_min"),
+        "notice_days_max": re_.get("notice_days_max"),
+        "days_remaining": re_.get("days_remaining"),
+        "increase_type": itype,
+        "increase_percent": pct,
+        "increase_amount": pe.get("increase_amount"),
+        "increase_formula": pe.get("increase_formula"),
+        "next_term_amount": next_term,
+        "max_permitted_amount": max_permitted,
+        "escalation_delta": money_amount,
+        "objection_deadline": pe.get("objection_deadline"),
+        "renewal_finding_id": renewal["id"],
+        "price_finding_id": price["id"],
+    }
+
+    # Deterministic, grounded explanation (no LLM).
+    def _money(v):
+        return f"{currency} {v:,.0f}" if v is not None else None
+    if itype == "fixed_automatic":
+        esc = f"a fixed automatic increase of {pct}% applies"
+        if next_term is not None:
+            esc += f", taking the annual value to {_money(next_term)} (up {_money(money_amount)})"
+    elif itype == "capped":
+        esc = (f"the price may rise by up to {pct}% — a maximum of "
+               f"{_money(max_permitted)}, not a guaranteed increase" if pct is not None
+               else "a capped increase applies")
+    elif itype == "formula":
+        esc = (f"the price is adjusted by a formula ({pe.get('increase_formula')}); "
+               "the exact amount is unknown until the external index is published")
+    else:
+        esc = "a price increase applies"
+    nrd = re_.get("next_renewal_date") or "the renewal date"
+    plain = f"This contract renews on {nrd}. At renewal, {esc}."
+    action_required = bool(renewal.get("action_required"))
+    dl = re_.get("effective_action_deadline")
+    suggested = (f"Give notice by {dl} to avoid renewing into the higher price."
+                 if action_required and dl else
+                 "Review the renewal and the escalation together before the renewal date.")
+
+    confidence = min([renewal.get("confidence", "low"), price.get("confidence", "low")],
+                     key=lambda c: _CONF_ORDER.get(c, 0))
+
+    finding = Finding(
+        contract_id=contract_id, user_id=user_id, type=COMPOSITE_TYPE,
+        extracted=composite_extracted,
+        sources=[FindingSource(**s) for s in _union_sources(
+            renewal.get("sources"), price.get("sources"))],
+        confidence=confidence,
+        action_required=action_required,
+        money_amount=money_amount,
+        money_currency=currency if money_amount is not None else None,
+        money_kind=money_kind,
+        validation_status="validated",
+        validation_notes=[],
+        state="unconfirmed",
+        is_composite=True,
+        composite_of=[renewal["id"], price["id"]],
+        related_finding_ids=[renewal["id"], price["id"]],
+        plain_english=plain,
+        why_it_matters=("A renewal and a price increase land together, so the cost "
+                        "of missing the notice window is higher than either alone."),
+        suggested_action=suggested,
+        explanation_generated_at=utc_now_iso(),
+    )
+    result = await db.findings.insert_one(finding.to_mongo())
+    finding.id = str(result.inserted_id)
+    return finding.model_dump()
+
+
+
 async def draft_non_renewal_notice(finding: dict) -> str:
     """Draft a non-renewal notice grounded ONLY in the confirmed finding's
     validated sources + server-computed timing. No legal-validity claims."""

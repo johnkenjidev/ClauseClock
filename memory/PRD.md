@@ -128,6 +128,21 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   compute_price. Strict quote validation unchanged; no fuzzy matching.
 - Re-ran the same 10 SEC EDGAR contracts through the fixed pipeline: 10/10 PASS.
 
+### Stage 7B — Rate Shock Composite (2026-06)
+- New derived finding type `renewal_with_escalation` (models.FindingType).
+  analysis.refresh_rate_shock_composite: builds it ONLY when a validated,
+  non-dismissed renewal AND price_increase both exist; unions their already-
+  validated sources (deduped, no new quotes); server-derived, no LLM. fixed ->
+  next-term value + delta; capped -> max permitted (no projection); formula/
+  collar/floor -> grounded formula only. Deterministic plain_english.
+- Wired into analyze (rebuild + re-list) and confirm/correct/dismiss via
+  _refresh_composite_for (recompute/remove when a constituent changes);
+  correcting a composite is blocked (400). Uses is_composite/composite_of.
+- FindingCard renders the composite; ContractDetail (What Matters) shows it.
+- Verified: fixed (next-term $104k, +$4k), capped ($210k max, no projection),
+  constituent-invalid (ambiguous price -> needs_review -> no composite), and
+  removal on constituent dismiss. 4/4 pass.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

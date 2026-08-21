@@ -310,7 +310,11 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
     findings, warnings = await analysis.run_renewal_analysis(db, contract, user_id)
     price_findings, price_warnings = await analysis.run_price_increase_analysis(
         db, contract, user_id)
-    findings = analysis.apply_ranking(findings + price_findings)
+    await analysis.refresh_rate_shock_composite(db, contract, user_id)
+    from models import Finding
+    allf = [Finding.from_mongo(f).model_dump()
+            async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id})]
+    findings = analysis.apply_ranking(allf)
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
@@ -479,13 +483,24 @@ async def _get_finding(finding_id: str, user_id: str):
     return oid, doc
 
 
+async def _refresh_composite_for(doc: dict, user_id: str):
+    """Recompute/remove the rate-shock composite after a constituent changes."""
+    if doc.get("type") not in ("renewal_notice", "price_increase"):
+        return
+    contract = await db.contracts.find_one(
+        {"_id": ObjectId(doc["contract_id"]), "user_id": user_id})
+    if contract:
+        await analysis.refresh_rate_shock_composite(db, contract, user_id)
+
+
 @api_router.post("/findings/{finding_id}/confirm")
 async def confirm_finding(finding_id: str, user_id: str = Depends(current_user_id)):
     from models import Finding
-    oid, _ = await _get_finding(finding_id, user_id)
+    oid, doc = await _get_finding(finding_id, user_id)
     await db.findings.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"state": "confirmed", "confirmed_at": utc_now_iso()}})
+    await _refresh_composite_for(doc, user_id)
     return {"finding": Finding.from_mongo(
         await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
 
@@ -496,6 +511,9 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
     from models import Finding
     oid, doc = await _get_finding(finding_id, user_id)
     ftype = doc.get("type")
+    if ftype == "renewal_with_escalation":
+        raise HTTPException(status_code=400,
+                            detail="Composite findings are derived; correct their renewal or price-increase constituents instead.")
     prev = doc.get("extracted", {}) or {}
 
     try:
@@ -551,6 +569,7 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
     fd = Finding.from_mongo(updated).model_dump()
     if fd.get("validation_status") == "validated":
         fd = await analysis.generate_explanation(db, fd, user_id)
+    await _refresh_composite_for(doc, user_id)
     fd = analysis.apply_ranking([fd])[0]
     return {"finding": fd, "changed_fields": changed}
 
@@ -558,10 +577,11 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
 @api_router.post("/findings/{finding_id}/dismiss")
 async def dismiss_finding(finding_id: str, user_id: str = Depends(current_user_id)):
     from models import Finding
-    oid, _ = await _get_finding(finding_id, user_id)
+    oid, doc = await _get_finding(finding_id, user_id)
     # Preserve the finding and its provenance; only change state.
     await db.findings.update_one(
         {"_id": oid, "user_id": user_id}, {"$set": {"state": "dismissed"}})
+    await _refresh_composite_for(doc, user_id)
     return {"finding": Finding.from_mongo(
         await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
 
