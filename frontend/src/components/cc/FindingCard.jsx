@@ -28,6 +28,9 @@ const PURPOSE_LABEL = {
   increase: "Price increase",
   objection: "Objection window",
   increase_basis: "What it applies to",
+  termination_right: "Termination right",
+  effective_timing: "Effective timing",
+  termination_fee: "Termination fee",
 };
 
 const INCREASE_TYPE_LABEL = {
@@ -82,6 +85,29 @@ function priceSubhead(e) {
   return "Stated price increase.";
 }
 
+// termination_right presentation helpers
+const TERMINATION_TYPE_LABEL = {
+  for_convenience: "For convenience",
+  early_exit: "Early exit / break right",
+  for_cause: "For cause only",
+  unspecified: "Unspecified",
+};
+function terminationHeadline(e) {
+  return (TERMINATION_TYPE_LABEL[e.termination_type] || "Termination right").toUpperCase();
+}
+function noticePeriodText(e) {
+  if (e.notice_period_value == null) return null;
+  const unit = e.notice_period_unit || "days";
+  const b = e.notice_basis === "business" ? " business" : "";
+  return `${e.notice_period_value}${b} ${unit}`;
+}
+function terminationSubhead(e) {
+  const np = noticePeriodText(e);
+  if (e.termination_type === "for_cause") return "Exit permitted only on the stated cause.";
+  if (np) return `Give ${np} notice to exit early.`;
+  return "An early-exit right applies.";
+}
+
 // Palette selection per PART 5: stamp only ≤14d AND action required; pending
 // for 15–60d / review; neutral otherwise.
 function tone(f) {
@@ -106,6 +132,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const e = finding.extracted || {};
   const isPrice = finding.type === "price_increase";
   const isComposite = finding.type === "renewal_with_escalation";
+  const isTermination = finding.type === "termination_right";
   const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
   const badge = STATE_BADGE[finding.state];
@@ -140,7 +167,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
       <div className="p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isPrice ? "Price increase" : "Automatic renewal"}</p>
+            <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isTermination ? "Termination right" : isPrice ? "Price increase" : "Automatic renewal"}</p>
             {finding.rank_category && (
               <span data-testid="finding-rank-category"
                 className="inline-block cc-eyebrow mt-1 text-ink-soft">
@@ -155,6 +182,15 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 <p className="cc-days-remaining mt-2 max-w-md">
                   {finding.validation_notes?.[0] ||
                     "This finding needs review before a deadline can be shown."}
+                </p>
+              </>
+            ) : isTermination ? (
+              <>
+                <p className={`cc-hero-date mt-3 ${TONE_TEXT[t]}`} data-testid="finding-termination-headline">
+                  {terminationHeadline(e)}
+                </p>
+                <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-termination-subhead">
+                  {terminationSubhead(e)}
                 </p>
               </>
             ) : isPrice && !heroIso ? (
@@ -225,6 +261,33 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             {e.effective_action_deadline && (
               <Fact label="Notice deadline"
                 value={longDate(e.effective_action_deadline)} testid="composite-notice-deadline" />
+            )}
+          </dl>
+        ) : isTermination ? (
+          <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <Fact label="Termination type"
+              value={TERMINATION_TYPE_LABEL[e.termination_type] || "Not stated"} testid="finding-termination-type" />
+            {e.who_may_terminate && (
+              <Fact label="Who may terminate" value={e.who_may_terminate} testid="finding-termination-who" />
+            )}
+            <Fact label="Notice period"
+              value={noticePeriodText(e) || "Not stated"} testid="finding-termination-notice" />
+            {e.earliest_termination_date && (
+              <Fact label="Earliest exit"
+                value={longDate(e.earliest_termination_date)} testid="finding-termination-earliest" />
+            )}
+            {(e.termination_fee_amount != null || e.termination_fee_percent != null) && (
+              <Fact label="Termination fee"
+                value={e.termination_fee_amount != null
+                  ? <span className="cc-money">{money(e.termination_fee_amount, finding.money_currency)}</span>
+                  : `${e.termination_fee_percent}%`}
+                testid="finding-termination-fee" />
+            )}
+            {e.method && (
+              <Fact label="Notice method" value={e.method} testid="finding-termination-method" />
+            )}
+            {e.recipient && (
+              <Fact label="Notice recipient" value={e.recipient} testid="finding-termination-recipient" />
             )}
           </dl>
         ) : isPrice ? (

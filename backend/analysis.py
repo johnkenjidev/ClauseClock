@@ -411,6 +411,10 @@ async def generate_explanation(db, finding: dict, user_id: str) -> dict:
         fact_keys = ("increase_type", "increase_percent", "increase_amount",
                      "increase_formula", "next_term_amount", "max_permitted_amount",
                      "objection_deadline", "effective_action_deadline")
+    elif finding.get("type") == "termination_right":
+        fact_keys = ("termination_type", "who_may_terminate", "notice_period_value",
+                     "notice_period_unit", "earliest_termination_date",
+                     "termination_fee_amount", "termination_fee_percent")
     else:
         fact_keys = ("next_renewal_date", "effective_action_deadline",
                      "notice_days_min", "notice_days_max", "notice_basis",
@@ -788,6 +792,188 @@ def refine_increase_semantics(extracted: dict, sources: list) -> None:
         extracted["increase_type"] = "capped"
     elif has_index and not has_ceiling and not has_floor:
         to_formula()                       # index-only
+
+
+
+# --------------------------------------------------------------------------
+# Stage 7C — termination_right
+# --------------------------------------------------------------------------
+TERMINATION_HINT = re.compile(
+    r"terminat(e|ion)\s+(this\s+agreement|for\s+convenience|without\s+cause|"
+    r"early|the\s+agreement|prior\s+to)|for\s+convenience|early\s+(exit|termination)|"
+    r"break\s+(clause|right)|without\s+cause|right\s+to\s+terminate|"
+    r"cancel\s+(this\s+)?agreement|termination\s+(fee|charge|penalty)|"
+    r"early\s+termination\s+(fee|charge)", re.I)
+
+TERMINATION_TYPES = {"for_convenience", "early_exit", "for_cause", "unspecified"}
+REQUIRED_TERMINATION_PURPOSES = {"termination_right"}
+
+TERMINATION_EDITABLE_FIELDS = [
+    "termination_type", "who_may_terminate", "notice_period_value",
+    "notice_period_unit", "notice_basis", "notice_measured_to", "effective_date",
+    "min_term_value", "min_term_unit", "earliest_termination_date",
+    "termination_fee_stated", "termination_fee_amount", "termination_fee_percent",
+    "termination_fee_basis", "method", "recipient",
+]
+
+
+def compute_termination(extracted: dict, today: date):
+    """Deterministic termination-right normalization. Server-side only; never
+    infers a right and never projects a fee that is not explicitly stated.
+
+    Returns (computed, notes, needs_review, money_amount, money_kind, action_required).
+    """
+    out = {"earliest_termination_date": None, "effective_action_deadline": None,
+           "days_remaining": None}
+    notes, needs_review = [], False
+    money_amount, money_kind = None, None
+
+    ttype = extracted.get("termination_type")
+    if ttype not in ("for_convenience", "early_exit", "for_cause"):
+        needs_review = True
+        notes.append("The termination right is not clearly stated; confirm "
+                     "whether and how the contract can be ended early.")
+        ttype = "unspecified"
+
+    npv = extracted.get("notice_period_value")
+    if ttype in ("for_convenience", "early_exit") and npv is None:
+        needs_review = True
+        notes.append("An early-exit right applies but the required notice "
+                     "period is not stated.")
+
+    # Earliest exit: explicit date, else effective_date + minimum term (lock-in).
+    ed = extracted.get("earliest_termination_date")
+    if not ed:
+        eff = extracted.get("effective_date")
+        mtv, mtu = extracted.get("min_term_value"), extracted.get("min_term_unit")
+        if eff and mtv and mtu:
+            try:
+                base = datetime.strptime(eff, "%Y-%m-%d").date()
+                rel = normalize_unit(mtv, mtu)
+                if rel is not None:
+                    ed = (base + rel).isoformat()
+            except (ValueError, TypeError):
+                ed = None
+    out["earliest_termination_date"] = ed
+
+    # Termination fee — explicit only, never projected from a percentage.
+    fee = extracted.get("termination_fee_amount")
+    pct = extracted.get("termination_fee_percent")
+    if extracted.get("termination_fee_stated"):
+        if fee is not None:
+            money_amount, money_kind = float(fee), "cost"
+        elif pct is not None:
+            notes.append("A termination fee applies as a percentage; the amount "
+                         "depends on the remaining term.")
+        else:
+            needs_review = True
+            notes.append("A termination fee applies but the amount is not stated.")
+    elif fee is not None:
+        money_amount, money_kind = float(fee), "cost"
+
+    # A standing right to exit is not itself a dated action.
+    return out, notes, needs_review, money_amount, money_kind, False
+
+
+def recompute_termination_derived(edits: dict, today: date = None) -> dict:
+    today = today or date.today()
+    computed, notes, review, money_amount, money_kind, action_required = compute_termination(
+        edits, today)
+    validation_status = "needs_review" if review else "validated"
+    fields = {k: edits.get(k) for k in TERMINATION_EDITABLE_FIELDS}
+    fields.update(computed)
+    return {
+        "extracted": fields,
+        "validation_status": validation_status,
+        "validation_notes": notes,
+        "action_required": action_required,
+        "money_amount": money_amount,
+        "money_kind": money_kind,
+    }
+
+
+async def run_termination_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
+    """Orchestrate the termination_right pipeline and persist finding(s)."""
+    from models import Finding, FindingSource
+
+    contract_id = str(contract["_id"])
+    documents = [d async for d in db.documents.find(
+        {"contract_id": contract_id, "user_id": user_id})]
+    docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
+    chunks, chunk_map = build_chunks(list(docs_by_id.values()))
+
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": "termination_right"})
+    if not chunks:
+        return [], []
+
+    hint_ids = [c["chunk_id"] for c in chunks if TERMINATION_HINT.search(c["text"])]
+    candidate_ids = await llm.locate_termination(chunks)
+    candidate_ids = list(dict.fromkeys((candidate_ids or []) + hint_ids))
+    if not candidate_ids:
+        return [], []
+    candidates = [c for c in chunks if c["chunk_id"] in candidate_ids]
+
+    extracted = await llm.extract_termination(candidates)
+    if (not isinstance(extracted, dict) or not extracted.get("found")) and hint_ids:
+        focus = [c for c in chunks if c["chunk_id"] in set(hint_ids)]
+        if focus:
+            extracted = await llm.extract_termination(focus)
+    if not isinstance(extracted, dict) or not extracted.get("found"):
+        return [], []
+
+    validated, valid_purposes = validate_sources(
+        extracted.get("sources", []), chunk_map, docs_by_id)
+    if not validated:
+        return [], ["Candidate termination language was detected, but no source "
+                    "quote could be validated."]
+
+    validation_notes = []
+    needs_review = False
+    missing_required = REQUIRED_TERMINATION_PURPOSES - valid_purposes
+    if missing_required:
+        needs_review = True
+        validation_notes.append(
+            "Missing validated source for: " + ", ".join(sorted(missing_required)))
+
+    confidence = extracted.get("confidence") or "low"
+    doc_ids_in_sources = {s["document_id"] for s in validated}
+    if len(doc_ids_in_sources) > 1 and confidence == "high":
+        confidence = "medium"
+
+    today = date.today()
+    computed, term_notes, term_review, money_amount, money_kind, action_required = compute_termination(
+        extracted, today)
+    if term_review:
+        needs_review = True
+    validation_notes.extend(term_notes)
+
+    validation_status = "needs_review" if needs_review else "validated"
+    if needs_review and confidence == "high":
+        confidence = "medium"
+
+    extracted_fields = {k: extracted.get(k) for k in TERMINATION_EDITABLE_FIELDS}
+    extracted_fields.update(computed)
+
+    finding = Finding(
+        contract_id=contract_id, user_id=user_id, type="termination_right",
+        extracted=extracted_fields,
+        sources=[FindingSource(**s) for s in validated],
+        confidence=confidence,
+        action_required=action_required,
+        money_amount=money_amount,
+        money_currency=(contract.get("currency") or "USD") if money_amount is not None else None,
+        money_kind=money_kind,
+        validation_status=validation_status,
+        validation_notes=validation_notes,
+        state="unconfirmed",
+    )
+    result = await db.findings.insert_one(finding.to_mongo())
+    finding.id = str(result.inserted_id)
+    fd = finding.model_dump()
+    if validation_status == "validated":
+        fd = await generate_explanation(db, fd, user_id)
+    return [fd], []
 
 
 

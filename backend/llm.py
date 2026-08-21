@@ -225,6 +225,91 @@ async def extract_price(chunks: list[dict]) -> dict:
     return _parse_json(resp)
 
 
+# --------------------------------------------------------------------------
+# Stage 7C — termination_right
+# --------------------------------------------------------------------------
+LOCATE_TERMINATION_SYSTEM = (
+    "You are a contract-analysis locator. You receive numbered chunks of a "
+    "contract. Identify ONLY the chunks that may contain an EARLY-TERMINATION or "
+    "TERMINATION-FOR-CONVENIENCE right: a right to terminate/cancel the agreement "
+    "before its natural expiry (with or without cause), an early-exit or break "
+    "right, the notice required to terminate, when termination takes effect, or a "
+    "termination/early-exit fee. Do NOT select clauses that are only about "
+    "non-renewal at the end of the term or ordinary expiry. Return STRICT JSON: "
+    "{\"chunk_ids\": [\"c_01\", ...]}. Only possibly-relevant ids. No prose."
+)
+
+EXTRACT_TERMINATION_SYSTEM = (
+    "You extract a single termination_right finding from the supplied contract "
+    "chunks. Output STRICT JSON only, no prose.\n"
+    "HARD RULES:\n"
+    "- Extract ONLY an explicit right to terminate/cancel the agreement EARLY "
+    "(termination for convenience or an early-exit/break right). NEVER infer a "
+    "termination right from generic notice, non-renewal, or ordinary expiry "
+    "language. If the text only covers non-renewal or expiry, return "
+    "{\"found\": false}.\n"
+    "- Anything not explicitly stated is null. Never infer, estimate, or "
+    "reconstruct missing contract language. Do not invent notice periods, dates, "
+    "fees, methods, or recipients.\n"
+    "- termination_type must be one of: \"for_convenience\" (may terminate "
+    "without cause), \"early_exit\" (a break/early-exit right on stated "
+    "conditions), \"for_cause\" (only on breach/default), or \"unspecified\".\n"
+    "- notice_period_value is a NUMBER with notice_period_unit days|months|years.\n"
+    "- termination_fee_stated is true ONLY if the contract explicitly states a "
+    "fee/charge for terminating early; termination_fee_amount is an absolute "
+    "money amount only if explicitly stated; termination_fee_percent only if the "
+    "fee is stated as a percentage.\n"
+    "- effective_date / earliest_termination_date are ISO YYYY-MM-DD ONLY if an "
+    "explicit calendar date is stated; otherwise null.\n"
+    "- Every source quote is copied VERBATIM from the supplied chunk, max 400 "
+    "characters, and must echo the chunk_id it came from. Never output "
+    "document_id, page number, section number, or char_offset.\n"
+    "- Every populated field must have a supporting source purpose.\n"
+    "Schema when found:\n"
+    "{\"found\": true, \"termination_type\": "
+    "\"for_convenience|early_exit|for_cause|unspecified|null\", "
+    "\"who_may_terminate\": \"customer|supplier|either|null\", "
+    "\"notice_period_value\": int|null, \"notice_period_unit\": "
+    "\"days|months|years|null\", \"notice_basis\": \"calendar|business|null\", "
+    "\"notice_measured_to\": \"sent|received|unspecified|null\", "
+    "\"effective_date\": \"YYYY-MM-DD|null\", \"min_term_value\": int|null, "
+    "\"min_term_unit\": \"days|months|years|null\", "
+    "\"earliest_termination_date\": \"YYYY-MM-DD|null\", "
+    "\"termination_fee_stated\": true|false, \"termination_fee_amount\": "
+    "number|null, \"termination_fee_percent\": number|null, "
+    "\"termination_fee_basis\": str|null, \"method\": str|null, \"recipient\": "
+    "str|null, \"sources\": [{\"purpose\": \"termination_right|notice_period|"
+    "effective_timing|termination_fee|method\", \"chunk_id\": \"c_xx\", "
+    "\"quote\": \"verbatim <=400 chars\"}], \"confidence\": \"high|medium|low\"}"
+)
+
+
+async def locate_termination(chunks: list[dict]) -> list[str]:
+    chat = _new_chat(LOCATE_TERMINATION_SYSTEM)
+    prompt = (
+        "Chunks:\n\n" + _render_chunks(chunks, include_text=False) +
+        "\n\nReturn JSON {\"chunk_ids\": [...]} listing only chunks that may "
+        "contain an early-termination / termination-for-convenience right."
+    )
+    resp = await chat.send_message(UserMessage(text=prompt))
+    data = _parse_json(resp)
+    ids = data.get("chunk_ids", []) if isinstance(data, dict) else []
+    valid = {c["chunk_id"] for c in chunks}
+    return [i for i in ids if i in valid]
+
+
+async def extract_termination(chunks: list[dict]) -> dict:
+    chat = _new_chat(EXTRACT_TERMINATION_SYSTEM)
+    prompt = (
+        "Extract the termination_right finding from these chunks. Quote verbatim "
+        "and echo chunk_ids.\n\n" + _render_chunks(chunks, include_text=True)
+    )
+    resp = await chat.send_message(UserMessage(text=prompt))
+    return _parse_json(resp)
+
+
+
+
 EXPLAIN_SYSTEM = (
     "You write a plain-English explanation of a contract finding using "
     "ONLY the verbatim source quotes provided. STRICT RULES: do not add any "

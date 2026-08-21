@@ -310,6 +310,8 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
     findings, warnings = await analysis.run_renewal_analysis(db, contract, user_id)
     price_findings, price_warnings = await analysis.run_price_increase_analysis(
         db, contract, user_id)
+    term_findings, term_warnings = await analysis.run_termination_analysis(
+        db, contract, user_id)
     await analysis.refresh_rate_shock_composite(db, contract, user_id)
     from models import Finding
     allf = [Finding.from_mongo(f).model_dump()
@@ -318,7 +320,7 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
     await db.contracts.update_one(
         {"_id": oid, "user_id": user_id},
         {"$set": {"status": "analysed", "last_analysed_at": utc_now_iso()}})
-    return {"findings": findings, "warnings": warnings + price_warnings}
+    return {"findings": findings, "warnings": warnings + price_warnings + term_warnings}
 
 
 @api_router.get("/contracts/{contract_id}/findings")
@@ -472,6 +474,85 @@ class PriceCorrectionInput(BaseModel):
         return v
 
 
+class TerminationCorrectionInput(BaseModel):
+    termination_type: Optional[str] = None
+    who_may_terminate: Optional[str] = None
+    notice_period_value: Optional[int] = None
+    notice_period_unit: Optional[str] = None
+    notice_basis: Optional[str] = None
+    notice_measured_to: Optional[str] = None
+    effective_date: Optional[str] = None
+    min_term_value: Optional[int] = None
+    min_term_unit: Optional[str] = None
+    earliest_termination_date: Optional[str] = None
+    termination_fee_stated: Optional[bool] = None
+    termination_fee_amount: Optional[float] = None
+    termination_fee_percent: Optional[float] = None
+    termination_fee_basis: Optional[str] = None
+    method: Optional[str] = None
+    recipient: Optional[str] = None
+
+    @field_validator("termination_type")
+    @classmethod
+    def _valid_ttype(cls, v):
+        if v not in (None, "for_convenience", "early_exit", "for_cause", "unspecified"):
+            raise ValueError("invalid termination_type")
+        return v
+
+    @field_validator("who_may_terminate")
+    @classmethod
+    def _valid_who(cls, v):
+        if v not in (None, "customer", "supplier", "either"):
+            raise ValueError("invalid who_may_terminate")
+        return v
+
+    @field_validator("notice_period_unit", "min_term_unit")
+    @classmethod
+    def _valid_t_unit(cls, v):
+        if v not in _UNITS:
+            raise ValueError("unit must be days/months/years")
+        return v
+
+    @field_validator("notice_basis")
+    @classmethod
+    def _valid_t_basis(cls, v):
+        if v not in (None, "calendar", "business"):
+            raise ValueError("invalid notice_basis")
+        return v
+
+    @field_validator("notice_measured_to")
+    @classmethod
+    def _valid_t_measured(cls, v):
+        if v not in (None, "sent", "received", "unspecified"):
+            raise ValueError("invalid notice_measured_to")
+        return v
+
+    @field_validator("notice_period_value", "min_term_value")
+    @classmethod
+    def _non_neg_t(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("termination_fee_amount", "termination_fee_percent")
+    @classmethod
+    def _non_neg_fee(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("value must be >= 0")
+        return v
+
+    @field_validator("effective_date", "earliest_termination_date")
+    @classmethod
+    def _valid_t_date(cls, v):
+        if v in (None, ""):
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
+
+
 async def _get_finding(finding_id: str, user_id: str):
     try:
         oid = ObjectId(finding_id)
@@ -524,6 +605,10 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
                 {"_id": ObjectId(doc["contract_id"]), "user_id": user_id})
             cav = contract.get("annual_value") if contract else None
             recomputed = analysis.recompute_price_derived(edits, cav)
+        elif ftype == "termination_right":
+            edits = TerminationCorrectionInput(**body).model_dump()
+            editable = analysis.TERMINATION_EDITABLE_FIELDS
+            recomputed = analysis.recompute_termination_derived(edits)
         else:
             edits = CorrectionInput(**body).model_dump()
             editable = analysis.EDITABLE_FIELDS

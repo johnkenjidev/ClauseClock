@@ -143,6 +143,23 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
   constituent-invalid (ambiguous price -> needs_review -> no composite), and
   removal on constituent dismiss. 4/4 pass.
 
+### Stage 7C — Termination Rights (2026-06)
+- New finding type termination_right, reusing extraction/provenance/review/
+  ranking/explanation/What Matters. llm.locate_termination + extract_termination
+  (strict: only explicit early-exit / termination-for-convenience rights; never
+  inferred from generic notice/non-renewal/expiry). analysis.compute_termination
+  + run_termination_analysis + recompute_termination_derived: normalizes notice
+  period, computes earliest exit (explicit or effective_date + min-term lock-in),
+  money = explicit termination fee only (never projected from a %), action_required
+  False (standing right). Missing/ambiguous required terms (unclear type or notice
+  period, or a fee stated with no amount) -> needs_review.
+- server.py: analyze runs termination too; correct branch (TerminationCorrectionInput
+  + recompute_termination_derived). FindingCard + CorrectFindingDialog + ContractDetail
+  (What Matters) render termination_right.
+- Verified: valid (for_convenience, 60d notice, earliest exit 2028-01-01, $10k fee,
+  rank money); negative (non-renewal only -> no finding); ambiguous (early_exit,
+  no notice period -> needs_review). 3/3 pass.
+
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 

@@ -16,6 +16,8 @@ import { api, formatApiErrorDetail } from "@/lib/api";
 const NUM = ["initial_term_value", "renewal_period_value", "notice_days_min", "notice_days_max"];
 const PRICE_INT = ["objection_window_value"];
 const PRICE_FLOAT = ["increase_percent", "increase_amount"];
+const TERM_INT = ["notice_period_value", "min_term_value"];
+const TERM_FLOAT = ["termination_fee_amount", "termination_fee_percent"];
 
 const RENEWAL_FIELDS = [
   "effective_date", "initial_term_value", "initial_term_unit", "renewal_type",
@@ -29,14 +31,23 @@ const PRICE_FIELDS = [
   "objection_window_unit", "objection_basis", "objection_measured_to",
   "objection_deadline_stated", "objection_recipient", "objection_method",
 ];
+const TERM_FIELDS = [
+  "termination_type", "who_may_terminate", "notice_period_value",
+  "notice_period_unit", "notice_basis", "notice_measured_to", "effective_date",
+  "min_term_value", "min_term_unit", "earliest_termination_date",
+  "termination_fee_stated", "termination_fee_amount", "termination_fee_percent",
+  "termination_fee_basis", "method", "recipient",
+];
 
 const emptyToNull = (v) => (v === "" || v === undefined ? null : v);
 
 export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
   const isPrice = finding.type === "price_increase";
+  const isTermination = finding.type === "termination_right";
+  const fields = isPrice ? PRICE_FIELDS : isTermination ? TERM_FIELDS : RENEWAL_FIELDS;
   const e = finding.extracted || {};
   const init = {};
-  (isPrice ? PRICE_FIELDS : RENEWAL_FIELDS).forEach((k) => (init[k] = e[k] ?? ""));
+  fields.forEach((k) => (init[k] = e[k] ?? ""));
   const [form, setForm] = useState(init);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +61,9 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
       if (NUM.includes(k) && val !== null) val = parseInt(val, 10);
       if (PRICE_INT.includes(k) && val !== null) val = parseInt(val, 10);
       if (PRICE_FLOAT.includes(k) && val !== null) val = parseFloat(val);
+      if (TERM_INT.includes(k) && val !== null) val = parseInt(val, 10);
+      if (TERM_FLOAT.includes(k) && val !== null) val = parseFloat(val);
+      if (k === "termination_fee_stated") val = val === null ? null : (val === "true" || val === true);
       payload[k] = val;
     });
     try {
@@ -106,6 +120,26 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Txt k="objection_deadline_stated" label="Objection deadline (YYYY-MM-DD)" ph="optional" />
               <Txt k="objection_recipient" label="Objection recipient" ph="Account Manager" />
               <Txt k="objection_method" label="Objection method" ph="written notice" />
+            </>
+          ) : isTermination ? (
+            <>
+              <Sel k="termination_type" label="Termination type"
+                options={["for_convenience", "early_exit", "for_cause", "unspecified"]} />
+              <Sel k="who_may_terminate" label="Who may terminate" options={["customer", "supplier", "either"]} />
+              <Txt k="notice_period_value" label="Notice period value" ph="30" type="number" />
+              <Sel k="notice_period_unit" label="Notice period unit" options={["days", "months", "years"]} />
+              <Sel k="notice_basis" label="Notice basis" options={["calendar", "business"]} />
+              <Sel k="notice_measured_to" label="Measured to" options={["sent", "received", "unspecified"]} />
+              <Txt k="effective_date" label="Effective date (YYYY-MM-DD)" ph="2025-01-01" />
+              <Txt k="min_term_value" label="Minimum term value (lock-in)" ph="12" type="number" />
+              <Sel k="min_term_unit" label="Minimum term unit" options={["days", "months", "years"]} />
+              <Txt k="earliest_termination_date" label="Earliest exit date (YYYY-MM-DD)" ph="optional" />
+              <Sel k="termination_fee_stated" label="Termination fee stated?" options={["true", "false"]} />
+              <Txt k="termination_fee_amount" label="Termination fee amount" ph="5000" type="number" />
+              <Txt k="termination_fee_percent" label="Termination fee percent" ph="10" type="number" />
+              <Txt k="termination_fee_basis" label="Fee basis" ph="remaining fees" />
+              <Txt k="method" label="Notice method" ph="written notice" />
+              <Txt k="recipient" label="Notice recipient" ph="General Counsel" />
             </>
           ) : (
             <>
