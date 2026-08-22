@@ -1,10 +1,10 @@
-// /demo — public, read-only synthetic ClauseClock mockup-based workspace.
-import { useState, useEffect } from "react";
+// /demo — public, read-only synthetic ClauseClock V2 three-beat workspace.
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DEMO } from "@/constants/testIds";
 
 export default function Demo() {
-  const [theme, setTheme] = useState("dark");
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Hide standard AppShell layout header and footer dynamically
@@ -15,6 +15,20 @@ export default function Demo() {
 
     document.body.setAttribute("data-theme", "dark");
 
+    // Mockup IntersectionObserver lamp-reveal script
+    var panels = document.querySelectorAll(".paper");
+    if (!("IntersectionObserver" in window) ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      panels.forEach(function(p){ p.classList.add("lit"); });
+    } else {
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if (e.isIntersecting){ e.target.classList.add("lit"); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+      panels.forEach(function(p){ io.observe(p); });
+    }
+
     return () => {
       if (header) header.style.display = "";
       if (footer) footer.style.display = "";
@@ -22,15 +36,11 @@ export default function Demo() {
     };
   }, []);
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.body.setAttribute("data-theme", next);
-  };
-
   return (
-    <div data-testid={DEMO.root} className="demo-wrapper-v2 min-h-screen">
+    <div data-testid={DEMO.root} className="demo-wrapper-v3 min-h-screen">
       <style dangerouslySetInnerHTML={{ __html: `
+        @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap");
+
         /* Override standard AppShell container to match mockup full bleed */
         header { display: none !important; }
         footer { display: none !important; }
@@ -39,360 +49,370 @@ export default function Demo() {
           padding: 0 !important;
         }
 
-        :root, [data-theme="dark"]{
-          /* near-black with a faint green cast — ties to the seal, avoids default slate */
-          --paper:#101412; --card:#171C19; --rule:#28302B;
-          --ink:#E9E7E1; --ink-soft:#939B95;
-          /* the drawer is the ONLY light surface: a document under a lamp */
-          --document:#E6E1D6; --document-ink:#1A1D21; --document-soft:#5A5F58; --document-rule:#CFC8B9;
-          --seal:#4FA97C; --stamp:#E0603C; --pending:#C89A3C;
-          --drawer-glow:0 0 0 1px rgba(230,225,214,.14), 0 -8px 40px rgba(230,225,214,.07);
+        :root {
+          /* ground */
+          --ground:        #070A09;   /* near-black, green cast */
+          --ground-2:      #0C110F;   /* closing band only */
+          --ground-display:#BCC6C0;   /* hero only — sits just under paper luminance */
+          --ground-text:   #A9B5AE;   /* deliberately below paper luminance */
+          --ground-muted:  #6F7E77;
+          --ground-rule:   rgba(221,228,223,0.11);
+
+          /* paper — evidence surface */
+          --paper:         #CFC9BC;
+          --paper-edge:    #B8B09F;
+          --ink:           #1A1813;
+          --ink-muted:     #565045;
+          --ink-rule:      rgba(26,24,19,0.20);
+          --ink-hairline:  rgba(26,24,19,0.48);
+
+          /* scale */
+          --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+          --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+          --radius: 2px;
+          --measure: 34rem;
+          --panel-max: 54rem;
         }
-        [data-theme="light"]{
-          --paper:#FAFAF8; --card:#FFFFFF; --rule:#E4E2DB;
-          --ink:#1A1D21; --ink-soft:#545A62;
-          --document:#F4F2EC; --document-ink:#1A1D21; --document-soft:#545A62; --document-rule:#E4E2DB;
-          --seal:#1F6B4A; --stamp:#B3411F; --pending:#8A6410;
-          --drawer-glow:none;
-        }
-        .demo-wrapper-v2 {
-          background: var(--paper);
-          color: var(--ink);
-          font-family: 'Archivo', system-ui, sans-serif;
-          font-variant-numeric: tabular-nums;
+
+        .demo-wrapper-v3 {
+          background: var(--ground);
+          color: var(--ground-text);
+          font-family: "IBM Plex Sans", system-ui, sans-serif;
+          font-size: 16px;
+          line-height: 1.6;
           -webkit-font-smoothing: antialiased;
           min-height: 100vh;
         }
-        .demo-wrapper-v2 .mono{font-family:'IBM Plex Mono',monospace}
-        .demo-wrapper-v2 .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 
-        /* ---- top bar ---- */
-        .demo-header{
-          border-bottom:1px solid var(--rule); background:var(--card);
-          position:sticky;top:0;z-index:10;
+        .demo-wrapper-v3 .masthead {
+          border-bottom: 1px solid var(--ground-rule);
+          padding: var(--s5) 0;
         }
-        .demo-bar{max-width:1080px;margin:0 auto;padding:0 32px;height:64px;display:flex;align-items:center;gap:40px}
-        .demo-wordmark{font-weight:700;font-size:17px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;color:var(--ink)}
-        .demo-dial{width:16px;height:16px;border:2px solid var(--ink);border-radius:50%;position:relative}
-        .demo-dial::after{content:"";position:absolute;left:50%;top:2px;width:1.5px;height:5px;background:var(--ink);transform-origin:bottom;transform:translateX(-50%)}
-        .demo-nav{display:flex;gap:28px;margin-left:8px}
-        .demo-nav a{
-          text-decoration:none;color:var(--ink-soft);font-size:14px;font-weight:500;
-          padding:22px 0;border-bottom:2px solid transparent;
+        .demo-wrapper-v3 .masthead .wrap { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
+        .demo-wrapper-v3 .mark {
+          font-family: "IBM Plex Sans Condensed", sans-serif;
+          font-weight: 500; font-size: 1.0625rem; letter-spacing: 0.01em;
+          color: var(--ground-text); text-decoration: none;
         }
-        .demo-nav a.on{color:var(--ink);border-bottom-color:var(--ink)}
-        .demo-right{margin-left:auto;display:flex;align-items:center;gap:18px}
-        .demo-synthetic{
-          font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-          color:var(--ink-soft);border:1px solid var(--rule);
-          padding:5px 10px;border-radius:3px;background:var(--card);
+        .demo-wrapper-v3 .mark span { color: var(--ground-muted); }
+        .demo-wrapper-v3 .masthead a.quiet {
+          font-size: 0.875rem; color: var(--ground-muted); text-decoration: none;
         }
-        .demo-toggle{
-          background:none;border:1px solid var(--rule);color:var(--ink-soft);border-radius:4px;
-          padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;
+        .demo-wrapper-v3 .masthead a.quiet:hover { color: var(--ground-text); }
+
+        .demo-wrapper-v3 .hero { padding: var(--s9) 0 var(--s8); }
+        .demo-wrapper-v3 .hero h1 {
+          font-family: "IBM Plex Sans Condensed", sans-serif;
+          font-weight: 400;
+          color: var(--ground-display);
+          font-size: clamp(2.375rem, 6.4vw, 4.375rem);
+          line-height: 1.02;
+          letter-spacing: -0.025em;
+          margin: 0 0 var(--s5);
+          max-width: 19ch;
         }
-        .demo-toggle:hover{color:var(--ink)}
-        .demo-add{
-          background:var(--ink);color:var(--paper);border:none;border-radius:4px;
-          padding:9px 15px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;
+        .demo-wrapper-v3 .hero p {
+          margin: 0; color: var(--ground-muted); font-size: 1rem; max-width: var(--measure);
         }
 
-        .demo-main{max-width:1080px;margin:0 auto;padding:44px 32px 100px}
+        .demo-wrapper-v3 .beat-intro { padding: var(--s8) 0 var(--s6); }
+        .demo-wrapper-v3 .eyebrow {
+          font-size: 0.6875rem; font-weight: 500; text-transform: uppercase;
+          letter-spacing: 0.14em; color: var(--ground-muted);
+          margin: 0 0 var(--s3);
+        }
+        .demo-wrapper-v3 .beat-intro h2 {
+          font-family: "IBM Plex Sans Condensed", sans-serif;
+          font-weight: 400; font-size: clamp(1.375rem, 3vw, 1.75rem);
+          line-height: 1.25; margin: 0 0 var(--s3); max-width: 26ch;
+          color: var(--ground-display);
+        }
+        .demo-wrapper-v3 .beat-intro p { margin: 0; color: var(--ground-muted); max-width: var(--measure); }
 
-        /* ---- attention line ---- */
-        .demo-attention{padding-bottom:28px;border-bottom:1px solid var(--rule);margin-bottom:36px}
-        .demo-attention h1{font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.25;color:var(--ink)}
-        .demo-attention p{margin-top:7px;font-size:14.5px;color:var(--ink-soft)}
-
-        /* ---- the urgent finding ---- */
-        .demo-finding{
-          background:var(--card);border:1px solid var(--rule);border-radius:6px;
-          overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.28);
+        .demo-wrapper-v3 .paper {
+          position: relative;
+          max-width: var(--panel-max);
+          margin: 0 auto var(--s5);
+          background-color: var(--paper);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.07'/%3E%3C/svg%3E");
+          background-blend-mode: multiply;
+          color: var(--ink);
+          border-radius: var(--radius);
+          border-top: 1px solid #DBD5C7;
+          box-shadow: 0 32px 64px -28px rgba(0,0,0,0.75),
+                     0 2px 6px rgba(0,0,0,0.35);
+          padding: var(--s7) var(--s7) var(--s6);
         }
-        .demo-finding-head{display:flex;gap:36px;padding:28px 30px 24px}
-        .demo-date-block{flex-shrink:0;width:172px;border-right:1px solid var(--rule);padding-right:32px}
-        .demo-hero-date{
-          font-family:'Archivo Expanded','Archivo',sans-serif;font-weight:700;
-          font-size:50px;line-height:.94;letter-spacing:-.02em;text-transform:uppercase;
-          color:var(--stamp);
-        }
-        .demo-hero-year{font-size:14px;font-weight:500;color:var(--ink-soft);margin-top:8px}
-        .demo-days{margin-top:14px;font-size:14.5px;font-weight:600;color:var(--stamp)}
-        .demo-summary{flex:1;min-width:0}
-        .demo-tagline{display:flex;align-items:center;gap:10px;margin-bottom:11px}
-        .demo-chip{
-          font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-          padding:3px 7px;border-radius:2.5px;background:var(--stamp);color:#12100E;
-        }
-        .demo-counterparty{font-size:12.5px;color:var(--ink-soft)}
-        .demo-summary h2{font-size:19.5px;font-weight:600;letter-spacing:-.01em;margin-bottom:11px;color:var(--ink)}
-        .demo-plain{font-size:16px;line-height:1.6;max-width:56ch;color:var(--ink)}
-        .demo-matters{
-          margin-top:15px;padding-left:14px;border-left:2px solid var(--rule);
-          font-size:15px;line-height:1.55;color:var(--ink-soft);max-width:56ch;
-        }
-        .demo-matters strong{color:var(--ink);font-weight:600}
-
-        .demo-facts{
-          display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
-          background:var(--rule);border-top:1px solid var(--rule);
-        }
-        .demo-fact{background:var(--card);padding:15px 22px}
-        .demo-fact .eyebrow{display:block;margin-bottom:5px}
-        .demo-fact .v{font-size:14.5px;font-weight:600;color:var(--ink)}
-        .demo-fact .v.soft{font-weight:500;color:var(--ink-soft)}
-
-        /* ---- clause drawer ---- */
-        .demo-drawer-toggle{
-          width:100%;background:var(--card);border:none;border-top:1px solid var(--rule);
-          padding:13px 30px;text-align:left;cursor:pointer;
-          font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);
-          display:flex;align-items:center;gap:8px;
-        }
-        .demo-drawer-toggle:hover{color:var(--ink)}
-        .demo-drawer{
-          background:var(--document);color:var(--document-ink);
-          border-top:1px solid var(--rule);padding:26px 30px 28px;
-          box-shadow:var(--drawer-glow);position:relative;
-        }
-        .demo-drawer-note{font-size:12.5px;color:var(--document-soft);margin-bottom:20px;max-width:60ch;line-height:1.5}
-        .demo-clause{display:flex;gap:26px;padding:17px 0;border-top:1px solid var(--document-rule)}
-        .demo-clause:first-of-type{border-top:none;padding-top:0}
-        .demo-clause-rail{width:158px;flex-shrink:0}
-        .demo-clause-rail .p{display:block;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--document-ink);margin-bottom:5px}
-        .demo-clause-rail .ref{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500;color:var(--document-soft)}
-        .demo-quote{
-          font-family:'IBM Plex Mono',monospace;font-size:13.5px;line-height:1.72;
-          color:var(--document-ink);max-width:64ch;
-        }
-        .demo-verified{
-          margin-top:22px;padding-top:16px;border-top:1px solid var(--document-rule);
-          display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--document-soft);
-        }
-        .demo-tick{width:14px;height:14px;flex-shrink:0;color:#1F6B4A}
-
-        /* ---- actions ---- */
-        .demo-actions{display:flex;gap:10px;padding:18px 30px;border-top:1px solid var(--rule);align-items:center}
-        .demo-btn{
-          font-family:inherit;font-size:13.5px;font-weight:600;padding:10px 16px;
-          border-radius:4px;cursor:pointer;border:1px solid var(--rule);background:var(--card);color:var(--ink);
-        }
-        .demo-btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-        .demo-conf{margin-left:auto;font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:7px}
-        .demo-dot{width:7px;height:7px;border-radius:50%;background:var(--seal)}
-
-        /* ---- everything else ---- */
-        .demo-section-head{
-          display:flex;align-items:baseline;justify-content:space-between;
-          margin:46px 0 4px;padding-bottom:11px;border-bottom:1px solid var(--rule);
-        }
-        .demo-section-head h3{font-size:15px;font-weight:600;color:var(--ink)}
-        .demo-section-head a{font-size:13px;color:var(--ink-soft);text-decoration:none}
-        .demo-row{
-          display:flex;align-items:center;gap:20px;padding:15px 4px;
-          border-bottom:1px solid var(--rule);cursor:pointer;
-        }
-        .demo-row:hover{background:var(--card)}
-        .demo-row-date{width:96px;flex-shrink:0}
-        .demo-row-date .d{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
-        .demo-row-date .r{font-size:12px;color:var(--ink-soft);margin-top:2px}
-        .demo-row-date.pending .d{color:var(--pending)}
-        .demo-row-main{flex:1;min-width:0}
-        .demo-row-main .t{font-size:14.5px;font-weight:600;margin-bottom:2px;color:var(--ink)}
-        .demo-row-main .s{font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .demo-tag{
-          font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-          padding:3px 6px;border-radius:2.5px;flex-shrink:0;
-          border:1px solid var(--rule);color:var(--ink-soft);background:var(--card);
-        }
-        .demo-tag.money{color:var(--seal);border-color:color-mix(in srgb, var(--seal) 34%, transparent)}
-        .demo-tag.pending{color:var(--pending);border-color:color-mix(in srgb, var(--pending) 34%, transparent)}
-        .demo-row-val{width:104px;text-align:right;font-size:14px;font-weight:600;flex-shrink:0;color:var(--ink)}
-        .demo-row-val.soft{font-weight:500;color:var(--ink-soft)}
-
-        /* ---- portfolio strip ---- */
-        .demo-portfolio{
-          margin-top:52px;padding-top:26px;border-top:2px solid var(--ink-soft);
-          display:grid;grid-template-columns:repeat(4,1fr);gap:34px;
-        }
-        .demo-stat .eyebrow{display:block;margin-bottom:9px}
-        .demo-stat .n{font-size:25px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
-        .demo-stat .sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
-        .demo-stat .n.seal{color:var(--seal)}
-
-        .demo-footer{
-          max-width:1080px;margin:0 auto;padding:0 32px 64px;
-          font-size:12px;line-height:1.6;color:var(--ink-soft);max-width:72ch;
+        .demo-wrapper-v3 .paper::before {
+          content: ""; position: absolute; inset: -14% -6% -8%;
+          background: radial-gradient(58% 50% at 50% 34%, rgba(207,201,188,0.03), transparent 72%);
+          pointer-events: none; z-index: -1;
         }
 
-        @media (max-width:860px){
-          .demo-bar{gap:16px;padding:0 20px} .demo-synthetic{display:none}
-          .demo-main{padding:28px 20px 72px}
-          .demo-finding-head{flex-direction:column;gap:22px;padding:22px}
-          .demo-date-block{width:auto;border-right:none;border-bottom:1px solid var(--rule);padding:0 0 18px}
-          .demo-facts{grid-template-columns:1fr 1fr}
-          .demo-clause{flex-direction:column;gap:8px} .demo-clause-rail{width:auto}
-          .demo-drawer,.demo-actions{padding-left:22px;padding-right:22px}
-          .demo-portfolio{grid-template-columns:1fr 1fr;gap:26px}
-          .demo-row-val{display:none}
+        .demo-wrapper-v3 .provenance {
+          font-size: 0.75rem; color: var(--ink-muted);
+          padding-bottom: var(--s4); margin-bottom: var(--s5);
+          border-bottom: 1px solid var(--ink-rule);
+        }
+
+        .demo-wrapper-v3 .clause {
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 0.8125rem; line-height: 1.85;
+          margin: 0 0 var(--s6);
+          color: var(--ink);
+          border-left: 2px solid var(--ink-hairline);
+          padding-left: var(--s5);
+        }
+
+        .demo-wrapper-v3 .ledger { margin: 0; }
+        .demo-wrapper-v3 .row {
+          display: flex; align-items: baseline; justify-content: space-between;
+          gap: var(--s5); padding: var(--s3) 0;
+        }
+        .demo-wrapper-v3 .row dt { color: var(--ink-muted); font-size: 0.9375rem; margin: 0; }
+        .demo-wrapper-v3 .row dd {
+          margin: 0; font-size: 0.9375rem; color: var(--ink); text-align: right;
+          font-variant-numeric: lining-nums tabular-nums;
+        }
+        .demo-wrapper-v3 .row.result {
+          border-top: 1px solid var(--ink-hairline);
+          margin-top: var(--s3); padding-top: var(--s5);
+        }
+        .demo-wrapper-v3 .row.result dt { color: var(--ink); }
+        .demo-wrapper-v3 .row.absent dd { color: var(--ink-muted); }
+
+        .demo-wrapper-v3 .derivation {
+          margin: var(--s6) 0 0; font-size: 0.8125rem; color: var(--ink-muted);
+          padding-top: var(--s4); border-top: 1px solid var(--ink-rule);
+        }
+
+        .demo-wrapper-v3 .reason {
+          margin: var(--s6) 0 0; font-size: 0.9375rem; line-height: 1.65;
+          color: var(--ink); max-width: 46ch;
+        }
+        .demo-wrapper-v3 .reason + .reason { margin-top: var(--s3); color: var(--ink-muted); }
+
+        .demo-wrapper-v3 .record { margin: 0; }
+        .demo-wrapper-v3 .entry {
+          display: grid; grid-template-columns: 8.5rem 1fr;
+          gap: var(--s5); padding: var(--s4) 0;
+          border-bottom: 1px solid var(--ink-rule);
+        }
+        .demo-wrapper-v3 .entry:last-of-type { border-bottom: 0; }
+        .demo-wrapper-v3 .entry .when {
+          font-size: 0.8125rem; color: var(--ink-muted);
+          font-variant-numeric: lining-nums tabular-nums;
+        }
+        .demo-wrapper-v3 .entry .what { font-size: 0.9375rem; color: var(--ink); }
+        .demo-wrapper-v3 .entry .what small {
+          display: block; font-size: 0.8125rem; color: var(--ink-muted); margin-top: 2px;
+        }
+
+        .demo-wrapper-v3 .receipt {
+          margin-top: var(--s6); padding-top: var(--s6);
+          border-top: 1px dashed var(--ink-hairline);
+        }
+        .demo-wrapper-v3 .receipt .label {
+          font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em;
+          color: var(--ink-muted); margin: 0 0 var(--s3);
+        }
+        .demo-wrapper-v3 .hash {
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 0.8125rem; line-height: 1.7; letter-spacing: 0.02em;
+          margin: 0; color: var(--ink); word-break: break-all;
+        }
+        .demo-wrapper-v3 .receipt .note {
+          margin: var(--s4) 0 0; font-size: 0.8125rem; color: var(--ink-muted); max-width: 44ch;
+        }
+
+        .demo-wrapper-v3 .close {
+          background: var(--ground-2);
+          border-top: 1px solid var(--ground-rule);
+          margin-top: var(--s9); padding: var(--s9) 0;
+        }
+        .demo-wrapper-v3 .close h2 {
+          font-family: "IBM Plex Sans Condensed", sans-serif;
+          font-weight: 400; font-size: clamp(1.5rem, 3.4vw, 2rem);
+          line-height: 1.2; margin: 0 0 var(--s4); max-width: 22ch;
+          color: var(--ground-display);
+        }
+        .demo-wrapper-v3 .close p { margin: 0 0 var(--s6); color: var(--ground-muted); max-width: var(--measure); }
+        .demo-wrapper-v3 .cta {
+          display: inline-block; background: var(--paper); color: var(--ink);
+          font-family: "IBM Plex Sans", sans-serif; font-size: 1rem; font-weight: 500;
+          text-decoration: none; padding: var(--s4) var(--s6); border-radius: var(--radius);
+          border: 1px solid var(--paper-edge);
+          border-top-color: #DBD5C7;
+          box-shadow: 0 12px 28px -12px rgba(0,0,0,0.85), 0 1px 2px rgba(0,0,0,0.4);
+          transition: transform 120ms ease, box-shadow 120ms ease;
+          cursor: pointer;
+        }
+        .demo-wrapper-v3 .cta:hover { transform: translateY(-2px); box-shadow: 0 18px 36px -12px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.4); }
+        .demo-wrapper-v3 .cta:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+        .demo-wrapper-v3 .close .fineprint {
+          margin: var(--s5) 0 0; font-size: 0.8125rem; color: var(--ground-muted);
+        }
+
+        .demo-wrapper-v3 footer { padding: var(--s6) 0; border-top: 1px solid var(--ground-rule); }
+        .demo-wrapper-v3 footer .wrap { display: flex; justify-content: space-between; gap: var(--s4); flex-wrap: wrap; }
+        .demo-wrapper-v3 footer p { margin: 0; font-size: 0.8125rem; color: var(--ground-muted); }
+
+        /* lamp reveal */
+        .demo-wrapper-v3 .paper { opacity: 0; transform: translateY(10px); transition: opacity 520ms ease, transform 520ms ease; }
+        .demo-wrapper-v3 .paper.lit { opacity: 1; transform: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .demo-wrapper-v3 .paper { opacity: 1; transform: none; transition: none; }
+          .demo-wrapper-v3 .cta { transition: none; }
+        }
+
+        @media (max-width: 640px) {
+          .demo-wrapper-v3 .wrap { padding: 0 var(--s4); }
+          .demo-wrapper-v3 .hero { padding: var(--s7) 0 var(--s6); }
+          .demo-wrapper-v3 .beat-intro { padding: var(--s7) 0 var(--s5); }
+          .demo-wrapper-v3 .paper {
+            margin-left: 0; margin-right: 0; border-radius: 0;
+            padding: var(--s6) var(--s4) var(--s5);
+            box-shadow: 0 18px 40px -22px rgba(0,0,0,0.8);
+          }
+          .demo-wrapper-v3 .clause { padding-left: var(--s4); font-size: 0.78125rem; }
+          .demo-wrapper-v3 .entry { grid-template-columns: 1fr; gap: var(--s1); }
+          .demo-wrapper-v3 .entry .when { order: -1; }
+          .demo-wrapper-v3 .close { padding: var(--s7) 0; }
+        }
+
+        @media (max-width: 480px) {
+          .demo-wrapper-v3 .row { display: block; padding: var(--s3) 0; }
+          .demo-wrapper-v3 .row dt { font-size: 0.8125rem; }
+          .demo-wrapper-v3 .row dd { text-align: left; margin-top: 2px; font-size: 1rem; }
+          .demo-wrapper-v3 .row.result { padding-top: var(--s4); }
         }
       ` }} />
 
-      <header className="demo-header">
-        <div className="demo-bar">
-          <div className="demo-wordmark"><span className="demo-dial"></span>ClauseClock</div>
-          <nav className="demo-nav">
-            <a href="#" className="on">Dashboard</a>
-            <a href="#">Contracts</a>
-            <a href="#">Action Center</a>
-          </nav>
-          <div className="demo-right">
-            <span className="demo-synthetic">Synthetic demo workspace</span>
-            <button className="demo-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === "dark" ? "Light" : "Dark"}
-            </button>
-            <button className="demo-add">Add contract</button>
-          </div>
+      <header className="masthead">
+        <div className="wrap">
+          <a className="mark" href="#" onClick={(e) => { e.preventDefault(); navigate("/demo"); }}>
+            ClauseClock<span>&nbsp;/ demo</span>
+          </a>
+          <a className="quiet" href="#" onClick={(e) => { e.preventDefault(); navigate("/login"); }}>
+            Sign in
+          </a>
         </div>
       </header>
 
-      <main className="demo-main">
-        <div className="demo-attention">
-          <h1>One window needs action.</h1>
-          <p>14 contracts monitored · everything else is more than 40 days out · Synthetic Demo Mode</p>
-        </div>
-
-        <article className="demo-finding">
-          <div className="demo-finding-head">
-            <div className="demo-date-block">
-              <div className="demo-hero-date">Sep 2</div>
-              <div className="demo-hero-year">2026</div>
-              <div className="demo-days">13 days remaining</div>
-            </div>
-            <div className="demo-summary">
-              <div className="demo-tagline">
-                <span className="demo-chip">Automatic renewal</span>
-                <span className="demo-counterparty">Acme Cloud Services, Inc.</span>
-              </div>
-              <h2>Master Services Agreement</h2>
-              <p className="demo-plain">This agreement renews for another 12 months on 1 December unless you give written notice at least 90 days beforehand.</p>
-              <p className="demo-matters">Another term is valued at <strong>$24,000</strong>. Notice must be <strong>received</strong> by 2 September — email is not accepted for non-renewal.</p>
-            </div>
+      <main>
+        <section className="hero">
+          <div className="wrap">
+            <h1>Every deadline, traced to the sentence it came from.</h1>
+            <p>ClauseClock reads your vendor agreements, computes the dates the contract actually supports, and shows its work. Three real outputs below — including one where it declines to answer. <strong>All demo workspace data is synthetic.</strong></p>
           </div>
+        </section>
 
-          <div className="demo-facts">
-            <div className="demo-fact"><span className="eyebrow">Next renewal</span><span className="demo-v">1 Dec 2026</span></div>
-            <div className="demo-fact"><span className="eyebrow">Notice period</span><span className="demo-v">90 days</span></div>
-            <div className="demo-fact"><span className="eyebrow">Method required</span><span className="demo-v">Certified mail</span></div>
-            <div className="demo-fact"><span className="eyebrow">Addressed to</span><span className="demo-v soft">General Counsel</span></div>
+        {/* ===================== BEAT 1 — THE FINDING ===================== */}
+        <section className="beat-intro">
+          <div className="wrap">
+            <p className="eyebrow">A finding</p>
+            <h2>A deadline, and the sentence it came from.</h2>
+            <p>Every date on this card is derived from the quoted text. Nothing is summarized or restated.</p>
           </div>
+        </section>
 
-          <button className="demo-drawer-toggle" onClick={() => setDrawerOpen(!drawerOpen)}>
-            {drawerOpen ? "Hide the contract language ⌃" : "Show the contract language ⌄"}
-          </button>
+        <article className="paper">
+          <p className="provenance">Vendor Services Agreement — Meridian Supply Co. &nbsp;·&nbsp; § 4.1 Term and Renewal &nbsp;·&nbsp; page 3</p>
 
-          {drawerOpen && (
-            <div className="demo-drawer animate-cc-settle">
-              <p className="demo-drawer-note">Three clauses from two pages, assembled into one deadline. Each quote below was matched verbatim against the uploaded document.</p>
+          <p className="clause">&ldquo;This Agreement shall commence on December 1, 2025 (the &ldquo;Effective Date&rdquo;) and shall continue for an initial term of three (3) years. This Agreement shall automatically renew for successive one (1) year terms unless either party provides written notice of non-renewal not less than sixty (60) days prior to the end of the then-current term.&rdquo;</p>
 
-              <div className="demo-clause">
-                <div className="demo-clause-rail">
-                  <span className="p">Renewal term</span>
-                  <span className="ref">§8.2 · p.22</span>
-                </div>
-                <p className="demo-quote">“This Agreement shall automatically renew for successive one (1) year periods unless either party provides written notice of non-renewal.”</p>
-              </div>
+          <dl className="ledger">
+            <div className="row"><dt>Effective date</dt><dd>December 1, 2025</dd></div>
+            <div className="row"><dt>Initial term</dt><dd>3 years</dd></div>
+            <div className="row"><dt>Term ends</dt><dd>November 30, 2028</dd></div>
+            <div className="row"><dt>Renews</dt><dd>December 1, 2028</dd></div>
+            <div className="row"><dt>Notice required</dt><dd>60 days before term end</dd></div>
+            <div className="row result"><dt>Notice deadline</dt><dd>October 1, 2028</dd></div>
+          </dl>
 
-              <div className="demo-clause">
-                <div className="demo-clause-rail">
-                  <span className="p">Notice period</span>
-                  <span className="ref">§8.2 · p.22</span>
-                </div>
-                <p className="demo-quote">“…such notice to be received not less than ninety (90) days prior to the expiration of the then-current term.”</p>
-              </div>
+          <p className="derivation">Computed from the quoted text, not inferred. ClauseClock asks you to confirm a finding before it starts tracking the date.</p>
+        </article>
 
-              <div className="demo-clause">
-                <div className="demo-clause-rail">
-                  <span className="p">Notice method</span>
-                  <span className="ref">§12.4 · p.23</span>
-                </div>
-                <p className="demo-quote">“All notices of termination or non-renewal shall be delivered by certified mail, return receipt requested, to the General Counsel at the address set forth below. Electronic mail shall not constitute valid notice under this Section.”</p>
-              </div>
+        {/* ===================== BEAT 2 — THE REFUSAL ===================== */}
+        <section className="beat-intro">
+          <div className="wrap">
+            <p className="eyebrow">A refusal</p>
+            <h2>When the contract {"doesn't"} say, ClauseClock {"doesn't"} guess.</h2>
+            <p>Same document type, same clause structure, one missing input.</p>
+          </div>
+        </section>
 
-              <div className="demo-verified">
-                <svg className="demo-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
-                All 3 quotes verified against Acme_MSA_2024.pdf · deadline computed from the notice period, not estimated
-              </div>
+        <article className="paper">
+          <p className="provenance">Master Services Agreement — draft, unexecuted &nbsp;·&nbsp; § 2.1 Term &nbsp;·&nbsp; page 1</p>
+
+          <p className="clause">&ldquo;This Agreement is effective as of [Signing Date] and shall remain in force for an initial period of twenty-four (24) months, renewing automatically thereafter unless terminated in accordance with Section 9.&rdquo;</p>
+
+          <dl className="ledger">
+            <div className="row absent"><dt>Effective date</dt><dd>Not stated in the document</dd></div>
+            <div className="row"><dt>Initial term</dt><dd>24 months</dd></div>
+            <div className="row"><dt>Renewal</dt><dd>Automatic</dd></div>
+            <div className="row result absent"><dt>Notice deadline</dt><dd>Cannot compute from this document</dd></div>
+          </dl>
+
+          <p className="reason">The effective date is an unfilled placeholder. Without it, the renewal date and the notice deadline cannot be derived from this document.</p>
+          <p className="reason">Add the signing date and ClauseClock will compute both. Until then, this contract stays in your portfolio without a tracked deadline.</p>
+        </article>
+
+        {/* ===================== BEAT 3 — THE RECORD ===================== */}
+        <section className="beat-intro">
+          <div className="wrap">
+            <p className="eyebrow">A record</p>
+            <h2>From finding to confirmed outcome.</h2>
+            <p>Detection is the first step. ClauseClock keeps the evidence that the deadline was met.</p>
+          </div>
+        </section>
+
+        <article className="paper">
+          <p className="provenance">Meridian Supply Co. &nbsp;·&nbsp; Non-renewal, initial term</p>
+
+          <dl className="record">
+            <div className="entry">
+              <div className="when">Mar 14, 2026</div>
+              <div className="what">Finding confirmed<small>Notice deadline — October 1, 2028</small></div>
             </div>
-          )}
+            <div className="entry">
+              <div className="when">Sep 4, 2028</div>
+              <div className="what">Non-renewal notice sent<small>Email to contracts@meridiansupply.com</small></div>
+            </div>
+            <div className="entry">
+              <div className="when">Sep 4, 2028</div>
+              <div className="what">Evidence attached<small>notice-meridian-2028-09-04.pdf — 214 KB</small></div>
+            </div>
+            <div className="entry">
+              <div className="when">Sep 11, 2028</div>
+              <div className="what">Outcome confirmed by vendor<small>20 days before the deadline</small></div>
+            </div>
+          </dl>
 
-          <div className="demo-actions">
-            <button className="demo-btn primary">Confirm deadline</button>
-            <button className="demo-btn">Correct</button>
-            <button className="demo-btn">Dismiss</button>
-            <span className="demo-conf"><span className="demo-dot"></span>High confidence</span>
+          <div className="receipt">
+            <p className="label">Evidence fingerprint · SHA-256</p>
+            <p className="hash">9f2c41ab7e58d0c3b6a94f17e2d85c0a3b71f6e94d2c8a05b3e7f19c4a6d82b0</p>
+            <p className="note">Recorded when the file was attached. Any change to the file changes this value.</p>
           </div>
         </article>
 
-        <div className="demo-section-head">
-          <h3>Upcoming</h3>
-          <a href="#">View all findings →</a>
-        </div>
-
-        <div className="demo-row">
-          <div className="demo-row-date pending"><div className="d">15 Oct</div><div className="r">56 days</div></div>
-          <div className="demo-row-main"><div className="t">Northwind Logistics — Services Agreement</div><div className="demo-row-val md:hidden">$41,000</div><div className="demo-row-val soft sm:hidden">$41,000</div><div className="s">Objection window · vendor may increase fees by up to 6%</div></div>
-          <span className="demo-tag money">Money</span>
-          <div className="demo-row-val">$41,000</div>
-        </div>
-
-        <div className="demo-row">
-          <div className="demo-row-date"><div className="d">3 Nov</div><div className="r">75 days</div></div>
-          <div className="demo-row-main"><div className="t">Kestrel Data — Subscription Agreement</div><div className="demo-row-val md:hidden">$8,400</div><div className="demo-row-val soft sm:hidden">$8,400</div><div className="s">Automatic renewal · 30 days written notice</div></div>
-          <span className="demo-tag">Renewal</span>
-          <div className="demo-row-val">$8,400</div>
-        </div>
-
-        <div className="demo-row">
-          <div className="demo-row-date"><div className="d">—</div><div className="r">no date</div></div>
-          <div className="demo-row-main"><div className="t">Pemberton Facilities — Master Agreement</div><div className="demo-row-val md:hidden">$16,200</div><div className="demo-row-val soft sm:hidden">$16,200</div><div className="s">Effective date not stated in the document — confirm it to calculate this deadline</div></div>
-          <span className="demo-tag pending">Needs review</span>
-          <div className="demo-row-val soft">$16,200</div>
-        </div>
-
-        <div className="demo-row">
-          <div className="demo-row-date"><div className="d">12 Jan</div><div className="r">145 days</div></div>
-          <div className="demo-row-main"><div className="t">Halden Systems — Enterprise Licence</div><div className="demo-row-val md:hidden">$52,000</div><div className="demo-row-val soft sm:hidden">$52,000</div><div className="s">Automatic renewal · 60 days written notice</div></div>
-          <span className="demo-tag">Renewal</span>
-          <div className="demo-row-val">$52,000</div>
-        </div>
-
-        <section className="demo-portfolio">
-          <div className="demo-stat">
-            <span className="eyebrow">Contracts monitored</span>
-            <div className="demo-stat n">14</div>
-            <div className="sub">2 need review</div>
-          </div>
-          <div className="demo-stat">
-            <span className="eyebrow">Value under tracking</span>
-            <div className="demo-stat n">$186,400</div>
-            <div className="sub">annual contract value</div>
-          </div>
-          <div className="demo-stat">
-            <span className="eyebrow">Confirmed protected</span>
-            <div className="demo-stat n seal">$18,000</div>
-            <div className="sub">1 renewal term avoided</div>
-          </div>
-          <div className="demo-stat">
-            <span className="eyebrow">Windows missed</span>
-            <div className="demo-stat n">0</div>
-            <div className="sub">since you started</div>
+        {/* ===================== CLOSE ===================== */}
+        <section className="close">
+          <div className="wrap">
+            <h2>Start with one contract.</h2>
+            <p>Upload a vendor agreement and see what ClauseClock finds — and what it {"won't"} claim to know.</p>
+            <button className="cta" onClick={() => navigate("/signup")}>Upload a contract</button>
+            <p className="fineprint">No card required. ClauseClock is not a law firm and does not provide legal advice.</p>
           </div>
         </section>
       </main>
 
-      <footer className="demo-footer">
-        <p>ClauseClock identifies possible obligations and rights from your documents. Verify against the original contract before acting. This is not legal advice. All data and metrics on this page are synthetic demonstration workspace values.</p>
+      <footer>
+        <div className="wrap">
+          <p>ClauseClock</p>
+          <p>Synthetic Demo Workspace — V2 demo composition</p>
+        </div>
       </footer>
     </div>
   );
