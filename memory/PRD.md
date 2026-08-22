@@ -213,6 +213,27 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
+### Anchor provenance + legacy banner patch (2026-06)
+- Manual anchor override: correcting notice_anchor_type now records
+  notice_anchor_origin="user", preserves the original extracted
+  type/quote/location as notice_anchor_extracted_* (audit), clears the current
+  notice_anchor_quote, and demotes the extracted source purpose "notice_anchor"
+  -> "notice_anchor_prior" so the clause drawer no longer treats it as support
+  for the user-selected anchor (still shown, clearly labelled "prior extraction
+  — not applied"). Anchor-unchanged corrects keep document-derived provenance.
+  Server helper _apply_anchor_provenance (server.py); Correct dialog shows a
+  concise note; FindingCard shows a "Notice counts back from" fact tagged
+  "set by you"/"from contract".
+- Legacy banner: reusable reason-driven FindingBanner (Primitives.jsx, neutral
+  info tone). Legacy renewal findings (anchor_version is None) with a stored
+  deadline keep the deadline (no recompute) and show "Computed before anchor
+  classification — review recommended." Component accepts a message so it can
+  later render other reasons (missing effective date, unknown anchor).
+- Verified statically (no LLM): anchor-change demotes source + preserves prior
+  quote + recomputes (renewal_start 2028-02-01); unchanged-anchor keeps document
+  provenance (term_end 90d -> 2028-01-01); legacy keeps 2028-01-31 + banner;
+  classified findings unchanged. Termination inspected only (separate path).
+
 ### Notice-anchor defect fix (2026-06) — term_end vs renewal_start
 - Root cause: compute_dates subtracted the notice period from next_renewal_date
   (renewal START) for every renewal, so clauses anchored to the TERM END (which

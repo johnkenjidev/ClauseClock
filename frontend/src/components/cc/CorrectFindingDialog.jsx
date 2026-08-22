@@ -185,6 +185,9 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Txt k="notice_days_max" label="Notice days (max)" ph="90" type="number" />
               <Sel k="notice_anchor_type" label="Notice counts back from"
                 options={["term_end", "renewal_start", "unknown"]} />
+              <p className="sm:col-span-2 cc-days-remaining text-ink-soft -mt-1" data-testid="anchor-help">
+                Changing this records the anchor as set by you, keeps the original extracted evidence for reference, and stops treating that quote as support for your selection.
+              </p>
               <Sel k="notice_basis" label="Notice basis" options={["calendar", "business"]} />
               <Sel k="notice_measured_to" label="Measured to" options={["sent", "received", "unspecified"]} />
               <Txt k="business_day_definition" label="Business day definition" ph="optional" />

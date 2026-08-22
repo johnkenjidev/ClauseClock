@@ -697,6 +697,59 @@ async def confirm_finding(finding_id: str, user_id: str = Depends(current_user_i
         await db.findings.find_one({"_id": oid, "user_id": user_id})).model_dump()}
 
 
+def _apply_anchor_provenance(update: dict, prev: dict, sources: list) -> None:
+    """Preserve notice-anchor provenance on a renewal Correct.
+
+    If the user changed the anchor away from what was extracted, mark the current
+    anchor as user-asserted, keep the original extracted anchor type + quote as
+    prior-extraction provenance (audit/history), stop presenting that quote as
+    support for the new anchor (demote the source purpose so the clause drawer no
+    longer treats it as current evidence), and clear the current anchor quote.
+    If the anchor is unchanged, keep the document-derived provenance intact.
+    Uses only the existing extracted/sources model — no separate history store."""
+    ext = update["extracted"]
+    src_list = [dict(s) for s in (sources or [])]
+    anchor_src = next((s for s in src_list
+                       if s.get("purpose") in ("notice_anchor", "notice_anchor_prior")), None)
+    prev_anchor = prev.get("notice_anchor_type")
+    new_anchor = ext.get("notice_anchor_type")
+
+    if new_anchor != prev_anchor:
+        # User override — record as user-set and preserve the original extraction.
+        ext["notice_anchor_origin"] = "user"
+        ext["notice_anchor_extracted_type"] = (
+            prev.get("notice_anchor_extracted_type") or prev_anchor)
+        ext["notice_anchor_extracted_quote"] = (
+            prev.get("notice_anchor_extracted_quote")
+            or prev.get("notice_anchor_quote")
+            or (anchor_src.get("quote") if anchor_src else None))
+        ext["notice_anchor_extracted_location"] = (
+            prev.get("notice_anchor_extracted_location")
+            or prev.get("notice_anchor_location")
+            or (anchor_src.get("location") if anchor_src else None))
+        # No current supporting quote for a user assertion.
+        ext["notice_anchor_quote"] = None
+        ext["notice_anchor_location"] = None
+        # Demote the extracted anchor source: kept for audit, not current support.
+        demoted = False
+        for s in src_list:
+            if s.get("purpose") == "notice_anchor":
+                s["purpose"] = "notice_anchor_prior"
+                demoted = True
+        if demoted:
+            update["sources"] = src_list
+    else:
+        # Anchor unchanged — keep document-derived provenance visible.
+        ext["notice_anchor_origin"] = prev.get("notice_anchor_origin") or "document"
+        if anchor_src and anchor_src.get("purpose") == "notice_anchor":
+            ext["notice_anchor_quote"] = anchor_src.get("quote")
+            ext["notice_anchor_location"] = anchor_src.get("location")
+        for k in ("notice_anchor_extracted_type", "notice_anchor_extracted_quote",
+                  "notice_anchor_extracted_location"):
+            if prev.get(k) is not None:
+                ext[k] = prev.get(k)
+
+
 @api_router.post("/findings/{finding_id}/correct")
 async def correct_finding(finding_id: str, body: dict = Body(default={}),
                           user_id: str = Depends(current_user_id)):
@@ -753,6 +806,7 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
     # Correcting a renewal applies the current anchor classification version.
     if ftype == "renewal_notice":
         update["anchor_version"] = analysis.ANCHOR_VERSION
+        _apply_anchor_provenance(update, prev, doc.get("sources", []))
     # Snapshot the original (AI) values once; accumulate changed field names.
     if not doc.get("original_values"):
         update["original_values"] = {k: prev.get(k) for k in editable}

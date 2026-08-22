@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Check, Pencil, X, Bell, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { LegalFooter } from "@/components/cc/Primitives";
+import { LegalFooter, FindingBanner } from "@/components/cc/Primitives";
 import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
 
 const STATE_BADGE = {
@@ -26,6 +26,7 @@ const PURPOSE_LABEL = {
   business_day_definition: "Business day definition",
   deemed_receipt: "Deemed receipt",
   notice_anchor: "Notice anchor",
+  notice_anchor_prior: "Notice anchor — prior extraction (not applied)",
   value: "Contract value",
   increase: "Price increase",
   objection: "Objection window",
@@ -46,6 +47,18 @@ const INCREASE_TYPE_LABEL = {
   formula: "Formula / index-linked",
   unspecified: "Unspecified",
 };
+
+const ANCHOR_LABEL = {
+  term_end: "Term end",
+  renewal_start: "Renewal start",
+  unknown: "Unknown",
+};
+function anchorFactValue(e) {
+  const base = ANCHOR_LABEL[e.notice_anchor_type] || e.notice_anchor_type;
+  if (e.notice_anchor_origin === "user") return `${base} · set by you`;
+  if (e.notice_anchor_origin === "document") return `${base} · from contract`;
+  return base;
+}
 
 const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
@@ -281,6 +294,13 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
 
         <div className={`mt-5 h-[3px] w-11 rounded ${TONE_RULE[t]}`} />
 
+        {/* Legacy: computed before anchor classification. Keep deadline; mark for
+            review. Reason-driven banner (reused for other reasons later). */}
+        {finding.type === "renewal_notice" && finding.anchor_version == null && e.effective_action_deadline && (
+          <FindingBanner tone="info" testid="finding-legacy-anchor-banner"
+            message="Computed before anchor classification — review recommended." />
+        )}
+
         {/* Key facts */}
         {isComposite ? (
           <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
@@ -410,6 +430,9 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             <Fact label="Next renewal"
               value={longDate(e.next_renewal_date) || "Not calculated"} testid="finding-next-renewal" />
             <Fact label="Notice period" value={noticeText()} testid="finding-notice-period" />
+            {e.notice_anchor_type && (
+              <Fact label="Notice counts back from" value={anchorFactValue(e)} testid="finding-notice-anchor" />
+            )}
             {!needsReview && e.earliest_action_date && (
               <Fact label="Notice window"
                 value={`${longDate(e.earliest_action_date)} – ${longDate(e.effective_action_deadline)}`}

@@ -25,3 +25,22 @@ export const LegalFooter = ({ className }) => (
     Verify against the original contract before acting. This is not legal advice.
   </p>
 );
+
+// Reusable, reason-driven finding banner. Neutral/informational by default so
+// it never reads like an urgent deadline or an error. Accepts a message so the
+// same component can later render other refusal/verification reasons (missing
+// effective date, unknown notice anchor, ...) — pass the reason text in.
+const BANNER_TONE = {
+  info: "border-rule bg-card text-ink-soft",
+  warn: "border-pending/40 bg-card text-pending",
+};
+export const FindingBanner = ({ message, tone = "info", testid = "finding-banner" }) => (
+  <div
+    data-testid={testid}
+    className={cn("mt-4 flex items-start gap-2 rounded-md border px-4 py-3",
+      BANNER_TONE[tone] || BANNER_TONE.info)}
+  >
+    <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-60" />
+    <p className="cc-days-remaining text-left">{message}</p>
+  </div>
+);
