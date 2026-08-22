@@ -1,153 +1,244 @@
-// /demo — public, read-only synthetic ClauseClock workspace (Stage 5).
-// No auth, no backend. A mature portfolio opening on ranked What Matters,
-// led by an urgent automatic-renewal finding 11 days out. Read-only: no
-// Confirm/Correct/Dismiss, no Stage 6 actions/evidence/outcomes.
-import { useMemo } from "react";
+// /demo — public, read-only synthetic ClauseClock V2 workspace.
+// Showcase of the three proof moments: sourced finding → safe refusal → evidence/outcome record.
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
 import { Eyebrow } from "@/components/cc/Primitives";
-import { FindingCard } from "@/components/cc/FindingCard";
-import { buildDemoWorkspace } from "@/data/demoWorkspace";
+import { FileText, Check, AlertTriangle, HelpCircle } from "lucide-react";
 import { DEMO } from "@/constants/testIds";
-
-const money = (v, cur) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: cur || "USD", maximumFractionDigits: 0 }).format(v);
 
 export default function Demo() {
   const navigate = useNavigate();
-  const { contracts, whatMatters } = useMemo(() => buildDemoWorkspace(new Date()), []);
 
   return (
-    <div data-testid={DEMO.root} className="max-w-6xl w-full mx-auto space-y-6">
-      <div data-testid={DEMO.banner} className="bg-card border border-rule text-stamp font-mono text-xs uppercase tracking-widest py-3 px-4 text-center w-full block rounded border-l-4 border-l-stamp">
-        ⚠️ Sandbox / Demo Environment — Synthetic Data Only (Read-Only)
+    <div data-testid={DEMO.root} className="max-w-4xl w-full mx-auto space-y-12">
+      {/* Pinned top sandbox banner */}
+      <div 
+        data-testid={DEMO.banner} 
+        className="bg-card border border-rule text-ink font-mono text-[11px] uppercase tracking-widest py-3 px-5 text-center w-full block rounded-none sm:rounded border-l-4 border-l-seal"
+      >
+        Sandbox / Demo Workspace — Synthetic Data Only
       </div>
 
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <Eyebrow>Overview</Eyebrow>
-          <h1 className="font-archivo font-black text-ink text-3xl sm:text-4xl tracking-tighter leading-tight mt-1">
-            {contracts.length} contracts monitored. One needs attention.
-          </h1>
-          <p className="cc-plain-english mt-2 text-ink-soft max-w-2xl">
-            This is a sample portfolio a few months into use — most contracts are calm,
-            one automatic renewal is due soon. All data is synthetic and read-only.
+      {/* Header */}
+      <div className="space-y-3">
+        <Eyebrow>PROVENANCE WORKSPACE V2</Eyebrow>
+        <h1 className="font-archivo font-black text-ink text-3xl sm:text-5xl tracking-tighter leading-tight">
+          Proof of Grounded Math.
+        </h1>
+        <p className="font-archivo text-base text-ink-soft leading-relaxed max-w-2xl">
+          Three visual moments demonstrating the ClauseClock engine: deterministic calculations, zero AI estimation fallbacks, and audited evidence.
+        </p>
+      </div>
+
+      <div className="cc-seal-rule w-16" />
+
+      {/* Moment 1: Sourced Finding */}
+      <section className="space-y-6 pt-4">
+        <div className="space-y-2">
+          <span className="font-mono text-xs text-ink-soft tracking-wider font-semibold">MOMENT 01</span>
+          <h2 className="font-archivo font-bold text-xl sm:text-2xl text-ink tracking-tight">Sourced Finding & Absolute Anchor</h2>
+          <p className="font-archivo text-sm text-ink-soft max-w-2xl leading-relaxed">
+            Deterministic calendar dates computed directly from classified contract anchors.
           </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
-        <div className="bg-card border border-rule p-5 rounded">
-          <span className="cc-eyebrow">Monitored Contracts</span>
-          <p className="font-archivo font-bold text-ink text-3xl mt-2">5</p>
-          <p className="cc-days-remaining mt-1 text-xs">All active agreements</p>
-        </div>
-        <div className="bg-card border border-rule p-5 rounded">
-          <span className="cc-eyebrow">Value under tracking</span>
-          <p className="font-archivo font-bold text-ink text-3xl mt-2">$242,400</p>
-          <p className="cc-days-remaining mt-1 text-xs">Total tracked contract value</p>
-        </div>
-        <div className="bg-card border border-rule p-5 rounded">
-          <span className="cc-eyebrow text-stamp">Actionable risks</span>
-          <p className="font-archivo font-bold text-stamp text-3xl mt-2">1 Urgent</p>
-          <p className="cc-days-remaining mt-1 text-xs text-stamp">Renewal is 11 days out</p>
-        </div>
-        <div className="bg-card border border-rule p-5 rounded">
-          <span className="cc-eyebrow text-pending">Pending reviews</span>
-          <p className="font-archivo font-bold text-pending text-3xl mt-2">1 Review</p>
-          <p className="cc-days-remaining mt-1 text-xs text-pending">Missing effective date</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-10">
-        {/* Left Area (What Matters) */}
-        <div className="lg:col-span-8 space-y-6">
-          <div>
-            <div className="flex items-center justify-between">
-              <Eyebrow>What matters</Eyebrow>
-              <span className="cc-section-ref text-seal text-xs font-semibold uppercase tracking-wider">Ranked by Urgency</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Summary */}
+          <div className="lg:col-span-6 bg-card border border-rule p-5 sm:p-6 rounded-none sm:rounded space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="font-mono text-[11px] text-ink-soft uppercase tracking-wider font-semibold">Contract Title</span>
+                <h3 className="font-archivo font-semibold text-lg text-ink mt-0.5">Meridian Data Processing Agreement</h3>
+              </div>
+              <span className="font-mono text-[10px] text-seal uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-rule bg-paper">
+                Verified
+              </span>
             </div>
-            <div className="cc-seal-rule mt-3 mb-2" />
-            <p className="cc-days-remaining mb-5" data-testid="demo-clause-hint">
-              Open any finding to reveal the exact contract language it came from.
+
+            <div className="pt-2">
+              <span className="font-mono text-[11px] text-ink-soft uppercase tracking-wider font-semibold">Calculated Deadline</span>
+              <p className="font-archivo font-black text-ink text-3xl sm:text-4xl mt-1 tracking-tight">
+                October 1, 2028
+              </p>
+              <p className="font-archivo text-xs text-ink-soft mt-1 leading-relaxed">
+                Calculated strictly backwards by 30 days from the next renewal date (renewal_start anchor).
+              </p>
+            </div>
+
+            <div className="pt-2 grid grid-cols-2 gap-4 border-t border-rule">
+              <div>
+                <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">ANCHOR TYPE</span>
+                <p className="font-archivo text-sm text-ink font-semibold mt-1">Renewal Start</p>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">NOTICE WINDOW</span>
+                <p className="font-archivo text-sm text-ink font-semibold mt-1">30 Days</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Evidence surface: full-bleed below 640px */}
+          <div className="lg:col-span-6 bg-document border border-document-rule p-5 sm:p-6 rounded-none sm:rounded-lg font-mono text-document-ink space-y-4 w-full">
+            <div className="flex items-center justify-between border-b border-document-rule pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-document-soft" />
+                <span className="text-[11px] text-document-soft uppercase tracking-wider font-bold">Verbatim Contract Clause</span>
+              </div>
+              <span className="text-[10px] text-document-soft font-semibold">P.3</span>
+            </div>
+
+            <p className="font-mono text-sm leading-relaxed text-document-ink whitespace-pre-wrap">
+              &ldquo;The subscription will renew automatically for successive annual terms unless notice is given at least thirty (30) days prior to renewal.&rdquo;
             </p>
-          </div>
-          <div className="space-y-6" data-testid="demo-what-matters">
-            {whatMatters.map(({ finding }) => (
-              <FindingCard key={finding.id} finding={finding} readOnly />
-            ))}
-          </div>
-        </div>
 
-        {/* Right Area (All Contracts Sidebar) */}
-        <div className="lg:col-span-4 space-y-6">
-          <div>
-            <Eyebrow>All contracts</Eyebrow>
-            <div className="cc-seal-rule mt-3 mb-5" />
-          </div>
-          <ul className="divide-y divide-rule rounded border border-rule bg-card overflow-hidden">
-            {contracts.map((c) => {
-              const isUrgent = c.findings.some(f => f.id === "demo_f_urgent");
-              const isReview = c.findings.some(f => f.validation_status === "needs_review");
-              let badgeText = "";
-              let badgeCls = "";
-              if (isUrgent) {
-                badgeText = "Urgent";
-                badgeCls = "bg-stamp/10 text-stamp border-stamp/20";
-              } else if (isReview) {
-                badgeText = "Review";
-                badgeCls = "bg-pending/10 text-pending border-pending/20";
-              } else {
-                badgeText = "Calm";
-                badgeCls = "bg-seal/10 text-seal border-seal/20";
-              }
-
-              return (
-                <li key={c.id}>
-                  <button data-testid={`demo-contract-${c.id}`}
-                    onClick={() => navigate(`/demo/contracts/${c.id}`)}
-                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-paper transition-colors group">
-                    <div className="pr-2">
-                      <p className="cc-finding-title text-sm group-hover:text-seal transition-colors">{c.name}</p>
-                      <p className="cc-days-remaining text-xs mt-1">
-                        {c.counterparty} · <span className="cc-money text-xs">{money(c.annual_value, c.currency)}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${badgeCls}`}>
-                        {badgeText}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-ink-soft group-hover:text-ink transition-colors" />
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* Sandbox info panel */}
-          <div className="p-5 border border-rule bg-card/40 rounded space-y-3">
-            <span className="cc-eyebrow">Sandbox Environment</span>
-            <p className="text-xs cc-days-remaining leading-relaxed">
-              This read-only portal lets prospective users evaluate the ClauseClock extraction and provenance engine without uploading live contracts.
-            </p>
-            <div className="flex flex-col gap-2 pt-2 text-xs">
-              <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-stamp shrink-0" />
-                <span>Stamp: urgent action required (≤ 14 days)</span>
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-pending shrink-0" />
-                <span>Pending: approaching notice date / review needed</span>
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-seal shrink-0" />
-                <span>Seal: calm or confirmed status</span>
-              </span>
+            <div className="border-t border-document-rule pt-3 text-[10px] text-document-soft space-y-1">
+              <p className="font-mono">source_hash: a8f7c9e13b8d4e92b3c7d6a5d4f1c3b4e9a8d7c6f5e4d3c2b1a0e9f8</p>
+              <p className="font-mono">char_offset: [14,288 - 14,440]</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <div className="border-t border-rule" />
+
+      {/* Moment 2: Safe Refusal */}
+      <section className="space-y-6 pt-4">
+        <div className="space-y-2">
+          <span className="font-mono text-xs text-ink-soft tracking-wider font-semibold">MOMENT 02</span>
+          <h2 className="font-archivo font-bold text-xl sm:text-2xl text-ink tracking-tight">Safe Refusal (Non-Hallucination Invariant)</h2>
+          <p className="font-archivo text-sm text-ink-soft max-w-2xl leading-relaxed">
+            ClauseClock refuses to estimate missing terms. If a reference date cannot be proven, no date calculations are performed.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Summary */}
+          <div className="lg:col-span-6 bg-card border border-rule p-5 sm:p-6 rounded-none sm:rounded space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="font-mono text-[11px] text-ink-soft uppercase tracking-wider font-semibold">Contract Title</span>
+                <h3 className="font-archivo font-semibold text-lg text-ink mt-0.5">Harbor Logistics Master Services Agreement</h3>
+              </div>
+              <span className="font-mono text-[10px] text-pending uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-rule bg-paper flex items-center gap-1 shrink-0">
+                <HelpCircle className="h-3 w-3" /> Needs Review
+              </span>
+            </div>
+
+            <div className="pt-2 space-y-3">
+              <span className="font-mono text-[11px] text-pending uppercase tracking-wider font-semibold">State Invariant</span>
+              <div className="bg-paper border border-rule p-4 flex gap-3 rounded-none">
+                <AlertTriangle className="h-5 w-5 text-pending shrink-0 mt-0.5" />
+                <p className="font-archivo text-xs leading-relaxed text-ink">
+                  <span className="font-semibold text-pending">Cannot compute from this document</span> — Missing agreement effective date. Absolute deadlines cannot be mathematically resolved without speculative inference.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 grid grid-cols-2 gap-4 border-t border-rule">
+              <div>
+                <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">EXTRACTED TYPE</span>
+                <p className="font-archivo text-sm text-ink font-semibold mt-1">Automatic Renewal</p>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">NOTICE REQUIRED</span>
+                <p className="font-archivo text-sm text-ink font-semibold mt-1">60 Days</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Evidence surface: full-bleed below 640px */}
+          <div className="lg:col-span-6 bg-document border border-document-rule p-5 sm:p-6 rounded-none sm:rounded-lg font-mono text-document-ink space-y-4 w-full">
+            <div className="flex items-center justify-between border-b border-document-rule pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-document-soft" />
+                <span className="text-[11px] text-document-soft uppercase tracking-wider font-bold">Verbatim Contract Clause</span>
+              </div>
+              <span className="text-[10px] text-document-soft font-semibold">P.5</span>
+            </div>
+
+            <p className="font-mono text-sm leading-relaxed text-document-ink whitespace-pre-wrap">
+              &ldquo;This MSA renews automatically for one-year terms unless terminated with sixty (60) days notice.&rdquo;
+            </p>
+
+            <div className="border-t border-document-rule pt-3 text-[10px] text-document-soft space-y-1">
+              <p className="font-mono">source_hash: c9d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2</p>
+              <p className="font-mono">char_offset: [21,040 - 21,142]</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="border-t border-rule" />
+
+      {/* Moment 3: Evidence/Outcome Record */}
+      <section className="space-y-6 pt-4">
+        <div className="space-y-2">
+          <span className="font-mono text-xs text-ink-soft tracking-wider font-semibold">MOMENT 03</span>
+          <h2 className="font-archivo font-bold text-xl sm:text-2xl text-ink tracking-tight">Evidence & Outcome Ledger</h2>
+          <p className="font-archivo text-sm text-ink-soft max-w-2xl leading-relaxed">
+            Locked action logs and outcome validation tracking. Standard ledger rows stack vertically below 480px.
+          </p>
+        </div>
+
+        {/* Ledger Table */}
+        <div className="border border-rule bg-card rounded-none sm:rounded overflow-hidden divide-y divide-rule">
+          {/* Header row - hidden below 480px for stacking */}
+          <div className="hidden xs:flex items-center justify-between px-5 py-3 bg-paper/50 font-mono text-[10px] text-ink-soft uppercase tracking-wider font-bold border-b border-rule">
+            <span className="w-1/3">Timestamp & Reference</span>
+            <span className="w-1/3">Event Action</span>
+            <span className="w-1/3 text-right">Verification Token / Value</span>
+          </div>
+
+          {/* Row 1 */}
+          <div className="p-5 flex flex-col xs:flex-row xs:items-center justify-between gap-4 text-sm">
+            <div className="xs:w-1/3 flex flex-col gap-0.5">
+              <span className="font-mono text-[11px] text-ink-soft">2028-09-01 10:14:00 UTC</span>
+              <span className="font-mono text-[10px] text-ink-soft font-semibold">LOG-ID: CC-EV-9123</span>
+            </div>
+            
+            <div className="xs:w-1/3 flex flex-col gap-0.5">
+              <span className="font-archivo font-semibold text-ink text-xs uppercase tracking-wide">Non-Renewal Notice Logged</span>
+              <span className="text-xs text-ink-soft leading-relaxed">Written notice delivered by certified mail to Meridian Systems General Counsel.</span>
+            </div>
+
+            <div className="xs:w-1/3 flex flex-col xs:items-end gap-1">
+              <span className="font-mono text-xs text-ink border border-rule px-2 py-0.5 rounded bg-paper self-start xs:self-auto flex items-center gap-1 font-semibold">
+                <Check className="h-3 w-3 text-seal" /> cert_9405500000
+              </span>
+              <span className="font-mono text-[9px] text-ink-soft">sha256: 8f2b3c...f231</span>
+            </div>
+          </div>
+
+          {/* Row 2 */}
+          <div className="p-5 flex flex-col xs:flex-row xs:items-center justify-between gap-4 text-sm">
+            <div className="xs:w-1/3 flex flex-col gap-0.5">
+              <span className="font-mono text-[11px] text-ink-soft">2028-09-15 14:22:10 UTC</span>
+              <span className="font-mono text-[10px] text-ink-soft font-semibold">LOG-ID: CC-EV-9124</span>
+            </div>
+            
+            <div className="xs:w-1/3 flex flex-col gap-0.5">
+              <span className="font-archivo font-semibold text-ink text-xs uppercase tracking-wide">Outcome Confirmed</span>
+              <span className="text-xs text-ink-soft leading-relaxed">Meridian Systems acknowledged termination. Contract status updated to Terminated.</span>
+            </div>
+
+            <div className="xs:w-1/3 flex flex-col xs:items-end gap-1">
+              <span className="font-mono text-xs text-seal font-semibold uppercase tracking-wider">
+                Value Avoided: $26,400
+              </span>
+              <span className="font-mono text-[9px] text-ink-soft">sha256: a1c9e8...c914</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* End CTA */}
+      <section className="pt-8 border-t border-rule text-center">
+        <button 
+          onClick={() => navigate("/signup")}
+          className="px-8 py-4 bg-ink text-paper hover:bg-ink-soft transition-colors font-archivo font-bold text-xs tracking-widest uppercase border border-rule rounded-none shadow-none"
+        >
+          Start Monitored Tracking
+        </button>
+      </section>
     </div>
   );
 }
