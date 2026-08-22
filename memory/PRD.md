@@ -213,6 +213,40 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 ## Next tasks
 - Await user's Stage 1 gate test (5 difficult contracts). Do not start Stage 2 until instructed.
 
+### Notice-anchor defect fix (2026-06) — term_end vs renewal_start
+- Root cause: compute_dates subtracted the notice period from next_renewal_date
+  (renewal START) for every renewal, so clauses anchored to the TERM END (which
+  is one day earlier) failed UNSAFE by one day (e.g. term end 2028-03-31 gave
+  2028-02-01 instead of 2028-01-31).
+- Fix keeps the pipeline text -> extraction/classification -> stored anchor +
+  provenance -> deterministic Python math. Added notice_anchor_type
+  {term_end, renewal_start, unknown} (closed set, NO default). Vocabulary
+  profiles (config, not calculator branching) + LLM semantic classification
+  resolve the anchor from a validated verbatim anchor quote (purpose
+  "notice_anchor"); ambiguous/no-quote -> unknown. compute_dates consumes the
+  classified value only; current_term_end = next_renewal_date - 1 day; unknown/
+  unsupported/absent anchor REFUSES (needs_review, reason "notice_anchor_unknown")
+  — never guesses. Safety invariant documented beside the enum/calculator.
+- Legacy vs unknown do not collapse: Finding.anchor_version (None = legacy/never
+  classified; >=1 = classified). No bulk recompute performed; legacy deadlines
+  untouched. Correcting a renewal sets anchor_version and lets the user pick the
+  anchor. Refusal reasons are per-reason notes (effective-date-missing vs
+  anchor-unknown), preserving the future UI distinction.
+- Files: backend/models.py (anchor_version), backend/analysis.py (NOTICE_ANCHORS,
+  ANCHOR_VERSION, NOTICE_ANCHOR_PROFILES, resolve_notice_anchor, compute_dates,
+  run_renewal_analysis, EDITABLE_FIELDS), backend/llm.py (EXTRACT_SYSTEM anchor
+  schema+examples+purpose), backend/server.py (CorrectionInput.notice_anchor_type
+  + anchor_version on correct), frontend FindingCard PURPOSE_LABEL + Correct
+  dialog anchor select, tests/verify_notice_anchor.py, typography test fixture.
+- Verified (focused only, no testing_agent/regression): DealMaker term_end
+  2028-03-31 -> 2028-01-31 (leap Feb); Meridian term_end 2028-11-30 -> 2028-10-01;
+  InvoiceCloud renewal_start -> 2028-02-01 (two semantics -> two anchors -> two
+  deadlines); unknown/absent -> refuse. Live e2e extraction classified both
+  clause types correctly. typography suite 38/38.
+- Legacy impact (preview DB): 9 renewal_notice findings lack anchor_version;
+  only 1 currently shows a tracked deadline (the other 8 are needs_review / no
+  deadline). Recommendation reported to user; recomputation decided separately.
+
 ### Stage 8/10 — Action Center: termination + price_increase (2026-06)
 - /action-center eligibility $or extended to also include termination_right and
   price_increase under the SAME generic rule (confirmed/corrected, validated,

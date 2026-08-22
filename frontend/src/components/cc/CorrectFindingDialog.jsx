@@ -31,6 +31,7 @@ const RENEWAL_FIELDS = [
   "renewal_period_value", "renewal_period_unit", "notice_days_min",
   "notice_days_max", "notice_basis", "business_day_definition",
   "notice_measured_to", "deemed_receipt_rule", "notice_method", "notice_recipient",
+  "notice_anchor_type",
 ];
 const PRICE_FIELDS = [
   "increase_type", "increase_percent", "increase_amount", "increase_formula",
@@ -182,6 +183,8 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Sel k="renewal_period_unit" label="Renewal period unit" options={["days", "months", "years"]} />
               <Txt k="notice_days_min" label="Notice days (min)" ph="60" type="number" />
               <Txt k="notice_days_max" label="Notice days (max)" ph="90" type="number" />
+              <Sel k="notice_anchor_type" label="Notice counts back from"
+                options={["term_end", "renewal_start", "unknown"]} />
               <Sel k="notice_basis" label="Notice basis" options={["calendar", "business"]} />
               <Sel k="notice_measured_to" label="Measured to" options={["sent", "received", "unspecified"]} />
               <Txt k="business_day_definition" label="Business day definition" ph="optional" />

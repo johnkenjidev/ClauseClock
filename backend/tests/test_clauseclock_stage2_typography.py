@@ -212,6 +212,9 @@ class TestComputeDatesDeterminism:
             "business_day_definition": None,
             "notice_measured_to": "sent",
             "deemed_receipt_rule": None,
+            # These cases assert renewal-start semantics (subtract from the
+            # next_renewal_date), so the classified anchor is renewal_start.
+            "notice_anchor_type": "renewal_start",
         }
         base.update(overrides)
         return base

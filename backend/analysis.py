@@ -44,6 +44,76 @@ def normalize_unit(value, unit):
             "year": relativedelta(years=value)}.get(unit)
 
 
+# ---------------------------------------------------------------------------
+# Notice-deadline ANCHOR (safety-critical). READ THIS beside the calculator.
+#
+# The term end / completion of the current term and the renewal start / start of
+# the next term are DISTINCT dates, usually one day apart. Anchoring the notice
+# window to the wrong one fails UNSAFE (hands the user an extra day). Therefore:
+#
+#   * There is intentionally NO default notice anchor. The deterministic
+#     calculator consumes a CLASSIFIED anchor value ONLY; it never re-reads the
+#     clause to infer the anchor. An unknown/unsupported anchor MUST refuse the
+#     calculation rather than guess. Do NOT add catch-all logic (default to
+#     renewal date, default to term end, pick the closest date, or silently
+#     convert null/unknown into a supported anchor).
+#   * Future unsupported anchors (anniversary-based, fixed calendar date, ...)
+#     remain "unknown" until explicitly modeled.
+#
+# Anchor is three-valued and MUST NOT collapse:
+#   - Finding.anchor_version is None  -> LEGACY / never-classified (do not treat
+#     as "unknown"; do not recompute or erase its stored deadline here).
+#   - notice_anchor_type == "unknown" -> classification ran, not confident.
+#   - notice_anchor_type in NOTICE_ANCHORS -> confidently classified.
+NOTICE_ANCHORS = ("term_end", "renewal_start")
+ANCHOR_VERSION = 1
+
+# Vocabulary profiles: CONFIGURATION data (not calculator branching). Phrase
+# families that explicitly anchor the notice window. Used to (a) inform the
+# extraction prompt and (b) deterministically corroborate the model's
+# classification from the validated anchor quote. Not an exhaustive literal
+# list — the extraction model still classifies semantically.
+NOTICE_ANCHOR_PROFILES = {
+    "term_end": [
+        r"completion of the .{0,40}\bterm\b", r"conclusion of the .{0,40}\bterm\b",
+        r"end of the (then[- ]?current |current )?term",
+        r"expir(y|ation) of the .{0,40}\bterm\b", r"prior to (the )?expir",
+        r"\bterm\b\s+(ends?|expires?)",
+    ],
+    "renewal_start": [
+        r"start date of the renewal term", r"commencement of the renewal term",
+        r"beginning of the (next|renewal) term", r"renewal term (start|commencement)",
+        r"start of the (next|renewal) term",
+    ],
+}
+_ANCHOR_PROFILE_RE = {k: [re.compile(p, re.I) for p in pats]
+                      for k, pats in NOTICE_ANCHOR_PROFILES.items()}
+
+
+def _profile_classify_anchor(quote: str) -> str:
+    """Deterministic classification from the validated anchor QUOTE via the
+    vocabulary profiles. Returns 'term_end' | 'renewal_start' | 'unknown'.
+    Ambiguous (matches both) or no-match => 'unknown'. Never defaults."""
+    q = _norm(_strip_markers(quote or ""))
+    matched = [k for k, regs in _ANCHOR_PROFILE_RE.items()
+               if any(r.search(q) for r in regs)]
+    return matched[0] if len(matched) == 1 else "unknown"
+
+
+def resolve_notice_anchor(model_value, anchor_quote: str, quote_validated: bool) -> str:
+    """Classification step (NOT the calculator). Prefer the deterministic
+    profile match on the validated quote; otherwise accept the model's semantic
+    classification ONLY if it is a supported anchor corroborated by a validated
+    verbatim quote. Anything else is 'unknown'. There is no default."""
+    if quote_validated:
+        prof = _profile_classify_anchor(anchor_quote)
+        if prof in NOTICE_ANCHORS:
+            return prof
+        if model_value in NOTICE_ANCHORS:
+            return model_value
+    return "unknown"
+
+
 def _location_at(raw_text: str, offset: int, file_type: str) -> str:
     head = raw_text[:offset]
     if file_type == "pdf":
@@ -220,10 +290,14 @@ def _sub_days(d: date, days: int, business: bool) -> date:
 
 
 def compute_dates(extracted: dict, today: date) -> dict:
-    """Deterministic date arithmetic. Returns computed fields + review flags."""
-    out = {"next_renewal_date": None, "action_deadline": None,
-           "earliest_action_date": None, "effective_action_deadline": None,
-           "days_remaining": None}
+    """Deterministic date arithmetic. Returns computed fields + review flags.
+
+    The calculator consumes the CLASSIFIED notice_anchor_type ONLY (see the
+    ANCHOR safety note above). It never inspects clause prose. An unknown or
+    unsupported anchor refuses the deadline calculation (fail-safe)."""
+    out = {"next_renewal_date": None, "current_term_end": None,
+           "action_deadline": None, "earliest_action_date": None,
+           "effective_action_deadline": None, "days_remaining": None}
     notes, needs_review = [], False
 
     eff = extracted.get("effective_date")
@@ -249,12 +323,28 @@ def compute_dates(extracted: dict, today: date) -> dict:
         while renewal <= today:
             renewal = renewal + period
     out["next_renewal_date"] = renewal.isoformat()
+    # The current term completes the day before the next term begins.
+    current_term_end = renewal - timedelta(days=1)
+    out["current_term_end"] = current_term_end.isoformat()
 
     nmin = extracted.get("notice_days_min")
     nmax = extracted.get("notice_days_max")
     if nmin is None:
         notes.append("Notice period not stated; deadline cannot be calculated.")
         return out, notes + ["notice_days_min_missing"], True
+
+    # Resolve the classified anchor. No default: refuse rather than guess.
+    anchor_type = extracted.get("notice_anchor_type")
+    if anchor_type == "renewal_start":
+        anchor_date = renewal
+    elif anchor_type == "term_end":
+        anchor_date = current_term_end
+    else:
+        notes.append("This contract's notice window is not clearly anchored to "
+                     "the term end or the renewal start, so ClauseClock will not "
+                     "calculate this deadline. Confirm which date the notice "
+                     "counts back from.")
+        return out, notes + ["notice_anchor_unknown"], True
 
     basis = extracted.get("notice_basis")
     business = basis == "business"
@@ -263,10 +353,10 @@ def compute_dates(extracted: dict, today: date) -> dict:
         notes.append("This contract counts in business days but does not define "
                      "which days count. Confirm this deadline.")
 
-    action_deadline = _sub_days(renewal, nmin, business)
+    action_deadline = _sub_days(anchor_date, nmin, business)
     out["action_deadline"] = action_deadline.isoformat()
     if nmax is not None:
-        out["earliest_action_date"] = _sub_days(renewal, nmax, business).isoformat()
+        out["earliest_action_date"] = _sub_days(anchor_date, nmax, business).isoformat()
 
     # deemed receipt: apply only when explicitly stated and measured to receipt
     measured = extracted.get("notice_measured_to")
@@ -289,7 +379,7 @@ EDITABLE_FIELDS = [
     "renewal_period_value", "renewal_period_unit", "notice_days_min",
     "notice_days_max", "notice_basis", "business_day_definition",
     "notice_measured_to", "deemed_receipt_rule", "notice_method",
-    "notice_recipient",
+    "notice_recipient", "notice_anchor_type",
 ]
 
 
@@ -505,6 +595,17 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
         needs_review = True
         validation_notes.append("Notice period (minimum days) not stated.")
 
+    # ---- notice-anchor classification (see ANCHOR safety note) ----
+    # Resolve deterministically from the validated anchor quote (vocabulary
+    # profile), falling back to the model's supported classification only when a
+    # verbatim anchor quote validated. No default: otherwise "unknown".
+    anchor_src = next((s for s in validated if s["purpose"] == "notice_anchor"), None)
+    notice_anchor_type = resolve_notice_anchor(
+        extracted.get("notice_anchor_type"),
+        anchor_src["quote"] if anchor_src else "",
+        anchor_src is not None)
+    extracted["notice_anchor_type"] = notice_anchor_type
+
     # Confidence: multi-document provenance caps at medium; low if reviews needed.
     doc_ids_in_sources = {s["document_id"] for s in validated}
     confidence = extracted.get("confidence") or "low"
@@ -562,6 +663,9 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
         "deemed_receipt_rule": extracted.get("deemed_receipt_rule"),
         "notice_method": extracted.get("notice_method"),
         "notice_recipient": extracted.get("notice_recipient"),
+        "notice_anchor_type": notice_anchor_type,
+        "notice_anchor_quote": anchor_src["quote"] if anchor_src else None,
+        "notice_anchor_location": anchor_src["location"] if anchor_src else None,
         **computed,
     }
     # If not validated, do not expose a computed deadline.
@@ -581,6 +685,7 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
         validation_status=validation_status,
         validation_notes=validation_notes,
         state="unconfirmed",
+        anchor_version=ANCHOR_VERSION,
     )
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)

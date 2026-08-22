@@ -25,6 +25,7 @@ const PURPOSE_LABEL = {
   notice_recipient: "Notice recipient",
   business_day_definition: "Business day definition",
   deemed_receipt: "Deemed receipt",
+  notice_anchor: "Notice anchor",
   value: "Contract value",
   increase: "Price increase",
   objection: "Objection window",

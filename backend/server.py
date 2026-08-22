@@ -391,6 +391,14 @@ class CorrectionInput(BaseModel):
     deemed_receipt_rule: Optional[str] = None
     notice_method: Optional[str] = None
     notice_recipient: Optional[str] = None
+    notice_anchor_type: Optional[str] = None
+
+    @field_validator("notice_anchor_type")
+    @classmethod
+    def _valid_anchor(cls, v):
+        if v not in (None, "term_end", "renewal_start", "unknown"):
+            raise ValueError("invalid notice_anchor_type")
+        return v
 
     @field_validator("effective_date")
     @classmethod
@@ -742,6 +750,9 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
     if "money_amount" in recomputed:
         update["money_amount"] = recomputed["money_amount"]
         update["money_kind"] = recomputed["money_kind"]
+    # Correcting a renewal applies the current anchor classification version.
+    if ftype == "renewal_notice":
+        update["anchor_version"] = analysis.ANCHOR_VERSION
     # Snapshot the original (AI) values once; accumulate changed field names.
     if not doc.get("original_values"):
         update["original_values"] = {k: prev.get(k) for k in editable}

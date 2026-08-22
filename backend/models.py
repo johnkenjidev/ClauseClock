@@ -203,6 +203,11 @@ class Finding(BaseDocument):
     corrected_fields: List[str] = Field(default_factory=list)
     confirmed_at: Optional[str] = None
     superseded_by_finding_id: Optional[PyObjectId] = None
+    # Notice-anchor classification version. None => LEGACY / never-classified
+    # (this is NOT the same as notice_anchor_type == "unknown", which means
+    # classification ran but could not confidently determine the anchor). These
+    # states must never collapse; legacy records are not recomputed here.
+    anchor_version: Optional[int] = None
 
     related_finding_ids: List[PyObjectId] = Field(default_factory=list)  # (1.2c)
     is_composite: bool = False
