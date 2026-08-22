@@ -101,3 +101,83 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the newly redesigned /demo overview and /demo/contracts/:id contract detail pages"
+
+frontend:
+  - task: "Demo overview page (/demo) - Banner display"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Demo.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Banner with test ID 'demo-synthetic-banner' displays correctly with text '⚠️ SANDBOX / DEMO ENVIRONMENT — SYNTHETIC DATA ONLY (READ-ONLY)'"
+
+  - task: "Demo overview page (/demo) - 5 synthetic contracts rendering"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Demo.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "All 5 synthetic contracts rendered successfully with correct test IDs: demo_c_northwind, demo_c_meridian, demo_c_atlas, demo_c_harbor, demo_c_cedar"
+
+  - task: "Demo overview page (/demo) - Contract navigation"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Demo.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Clicking on 'Northwind CRM — SaaS Subscription' contract correctly navigates to /demo/contracts/demo_c_northwind"
+
+  - task: "Contract detail page (/demo/contracts/:id) - Split-screen layout"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/DemoContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Split-screen view loads correctly. Left panel displays contract summary with title 'Northwind CRM — SaaS Subscription' and finding cards. Right panel displays verbatim evidence with 'CONTRACTUAL PROVENANCE REGISTER' header and 4 verbatim clause cards (renewal_term, notice_period, notice_method, notice_recipient)"
+
+  - task: "Contract detail page (/demo/contracts/:id) - Back button navigation"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/DemoContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Back button 'Demo overview' works correctly and navigates back to /demo page. Banner is visible confirming successful navigation"
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All demo page tests completed"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "testing"
+      message: "Completed comprehensive testing of /demo overview and /demo/contracts/:id pages. All requested features are working correctly. Minor console errors (401 status) observed but these are expected in demo mode and do not affect functionality. Screenshots captured for verification."

@@ -1,0 +1,142 @@
+{
+  "theme": "dark",
+  "theme_strategy": "Dark Canonical ('Part 5' System). Forced dark mode for maximum focus, long-session comfort, and high-trust data density. No light mode toggle for the demo environment.",
+  "typography": {
+    "primary_font": "Archivo",
+    "primary_font_usage": "Used for all standard UI elements, calm/human summaries, headings, and navigation.",
+    "secondary_font": "IBM Plex Mono",
+    "secondary_font_usage": "Used strictly for 'verbatim' documentary evidence, timestamps, legal clauses, IDs, and raw data extraction points.",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-black tracking-tighter text-[var(--ink)]",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink)]",
+      "h3": "text-xl sm:text-2xl font-semibold tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed text-[var(--ink-soft)]",
+      "mono_data": "font-mono text-sm tracking-tight text-[var(--ink)]",
+      "labels": "text-xs font-bold uppercase tracking-[0.2em] text-[var(--ink-soft)]"
+    }
+  },
+  "colors": {
+    "css_variables_setup": "Define these in index.css under :root or .dark",
+    "tokens": {
+      "--paper": "#09090b",
+      "--card": "#121214",
+      "--document": "#18181b",
+      "--ink": "#fafafa",
+      "--ink-soft": "#a1a1aa",
+      "--seal": "#2563eb",
+      "--stamp": "#e11d48",
+      "--pending": "#f59e0b"
+    },
+    "tailwind_mapping": {
+      "bg-paper": "bg-[#09090b]",
+      "bg-card": "bg-[#121214]",
+      "bg-document": "bg-[#18181b]",
+      "text-ink": "text-[#fafafa]",
+      "text-ink-soft": "text-[#a1a1aa]",
+      "text-seal": "text-[#2563eb]",
+      "text-stamp": "text-[#e11d48]",
+      "text-pending": "text-[#f59e0b]",
+      "border-default": "border-[#27272a]"
+    }
+  },
+  "spacing_and_layout": {
+    "strategy": "High Density Grid (Mode B) tailored for SaaS Admin/Legal Data. Every pixel must be utilized. No jagged bottoms.",
+    "container_padding": "p-6 md:p-8",
+    "gap": "gap-4 md:gap-6",
+    "radius": "rounded-none or max 4px (rounded-sm) for a sharp, authoritative, brutalist legal feel."
+  },
+  "visual_enhancers": {
+    "surfaces": "Use Flat Solid surfaces. No glassmorphism. Legal data needs optical clarity without visual refraction.",
+    "borders": "Expose the skeleton. Use 1px subtle borders (border-[#27272a]) to separate data sections.",
+    "shadows": "Minimal to zero shadows. Rely on background color stepping (--paper -> --card -> --document) and 1px borders for elevation."
+  },
+  "pages_and_components": {
+    "Demo.jsx": {
+      "purpose": "Dashboard Overview for the synthetic workspace.",
+      "sections": [
+        {
+          "name": "Synthetic Workspace Banner",
+          "layout": "Fixed or prominently pinned at the top. Full width.",
+          "styling": "bg-[#18181b] border-b border-[var(--stamp)] text-[var(--stamp)] font-mono text-xs uppercase tracking-widest p-2 text-center",
+          "content": "Sandbox / Demo Environment - Synthetic Data Only"
+        },
+        {
+          "name": "What Matters (Ranked Section)",
+          "layout": "Bento Grid (col-span-full md:col-span-4).",
+          "styling": "bg-[var(--card)] border border-[#27272a] p-6",
+          "content": "Ranked alerts: imminent renewals, risky clauses. Use --stamp for critical risks, --pending for upcoming renewals."
+        },
+        {
+          "name": "All Contracts List",
+          "layout": "Dense data table or list view (col-span-full).",
+          "styling": "Headers in Archivo labels, data rows mapping to IDs in IBM Plex Mono. Hover state on rows: hover:bg-[#18181b] transition-colors."
+        }
+      ]
+    },
+    "DemoContractDetail.jsx": {
+      "purpose": "Split-view contract analysis page proving the 'Calm vs Verbatim' design principle.",
+      "layout": "grid grid-cols-1 md:grid-cols-2 h-[calc(100vh-40px)] overflow-hidden",
+      "sections": [
+        {
+          "name": "Left Panel: Calm Summary",
+          "styling": "bg-[var(--card)] p-8 overflow-y-auto border-r border-[#27272a]",
+          "content": "Human-readable summary using Archivo. Clear hierarchy. Action buttons using --seal color."
+        },
+        {
+          "name": "Right Panel: Verbatim Evidence",
+          "styling": "bg-[var(--document)] p-8 overflow-y-auto font-mono text-[var(--ink-soft)]",
+          "content": "Raw extracted contract text. Highlighting matching clauses using background colors (e.g., bg-[var(--seal)]/20 text-[var(--seal)])."
+        },
+        {
+          "name": "Navigation",
+          "styling": "Absolute or sticky top left inside the Calm Summary panel.",
+          "content": "Back button to /demo. Simple icon + text, e.g., '< Back to Dashboard'"
+        }
+      ]
+    }
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMGF2YXRhcnxlbnwwfHx8fDE3ODc0Mjc0MTl8MA&ixlib=rb-4.1.0&q=85",
+      "category": "Avatar",
+      "description": "User profile avatar for the demo workspace header"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMGF2YXRhcnxlbnwwfHx8fDE3ODc0Mjc0MTl8MA&ixlib=rb-4.1.0&q=85",
+      "category": "Avatar",
+      "description": "Secondary user avatar or counterparty contact"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1637946175559-22c4fe13fc54?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBtb2Rlcm4lMjBkb2N1bWVudCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg3NDI3NDE5fDA&ixlib=rb-4.1.0&q=85",
+      "category": "Background/Abstract",
+      "description": "Subtle dark texture for empty states or authentication screens if needed"
+    }
+  ],
+  "accessibility": {
+    "contrast": "Strict adherence to WCAG AA. Ensure --ink-soft (zinc-400) against --paper (zinc-950) meets 4.5:1.",
+    "focus_states": "focus:ring-2 focus:ring-[var(--seal)] focus:outline-none focus:ring-offset-2 focus:ring-offset-[var(--paper)]",
+    "reduced_motion": "Respect prefers-reduced-motion for row hovers and panel transitions."
+  },
+  "testing": {
+    "requirements": "All interactive and key informational elements MUST include a data-testid attribute.",
+    "examples": [
+      "data-testid='demo-workspace-banner'",
+      "data-testid='what-matters-section'",
+      "data-testid='contract-list-item-0'",
+      "data-testid='back-to-dashboard-btn'",
+      "data-testid='calm-summary-panel'",
+      "data-testid='verbatim-evidence-panel'"
+    ]
+  },
+  "universal_guidelines": [
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends.",
+    "Do not use dark colors as gradients.",
+    "Create depth through background color stepping (--paper to --card to --document), not heavy shadows.",
+    "NEVER use AI assistant Emoji characters (🤖🧠) for icons. Use Phosphor or Lucide icons.",
+    "Every interaction needs micro-animations - hover states, transitions. Static = dead. Exclude transforms from universal transitions.",
+    "You MUST NOT center align the app container. Do not add `.App { text-align: center; }`.",
+    "Use solid background for headers; DO NOT use complete transparent background in header or overlays."
+  ],
+  "instructions_to_main_agent": "Focus exclusively on building Demo.jsx and DemoContractDetail.jsx using the specific 'Part 5' dark canonical design system. Implement the custom CSS variables in the root CSS file. Use pure raw HTML/Tailwind for structural layout and standard Shadcn components purely for interactive elements (tables, dropdowns). Ensure strict visual separation between the Archivo-based 'Calm Summary' and the IBM Plex Mono-based 'Verbatim Evidence' in the contract detail split view. Ensure all files are .jsx (not .tsx) as requested by the environment."
+}

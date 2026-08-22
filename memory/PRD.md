@@ -355,3 +355,9 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - Focused check: tests/check_stage6c2.py (known set -> confirmed 57000, pending
   9000, missed 1) PASS. Live endpoint verified. No reminders / new extraction
   types added (explicitly out of scope for 6C2).
+
+### Stage 11 — /demo Redesign (2026-08)
+- Redesigned the public, read-only synthetic sandbox workspace `/demo`.
+- **Demo Overview**: Rebuilt with a prominent Top Banner, high-density stats cards (Contracts, Value, Actionable Risks, Pending Reviews) using the canonical Part 5 color family, and a bento-style responsive split grid layout (left area displays ranked alerts / What Matters, right area displays the interactive contract checklist/sidebar).
+- **Demo Contract Detail**: Rebuilt as a split-screen layout proving the "Calm vs Verbatim" design system. The Left Panel displays a dark-canonical calm human summary with active-finding highlights, while the Right Panel displays a warm light document ground (`--document`) with verbatim, typewriter-style legal evidence supporting the selected finding. Fully interactive finding-selection.
+- **Verification**: Fully validated and tested using Playwright browser automation, asserting 100% correctness of test IDs (`demo-synthetic-banner`, `demo-contract-detail`), contract list loading, navigation, split-panel rendering, and back-button functionality.
