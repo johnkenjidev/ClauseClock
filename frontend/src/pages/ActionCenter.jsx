@@ -354,10 +354,6 @@ function ChecklistPanel({ item }) {
     );
   }
 
-  const anchorDate = checklist?.timing?.notice_anchor_type === "term_end"
-    ? checklist?.timing?.current_term_end
-    : checklist?.timing?.next_renewal_date;
-
   return (
     <div data-testid="checklist-panel" className="pb-8">
       {urgent && (
@@ -385,9 +381,15 @@ function ChecklistPanel({ item }) {
               <p className="cc-plain-english mt-1">{checklist.recipient.value || "Not stated in contract"}</p></div>
 
             <div><Eyebrow>Timing</Eyebrow>
-              <p className="cc-plain-english mt-1">
-                {checklist.timing.notice_days_min} {checklist.timing.notice_basis || "calendar"} days before {longDate(anchorDate)} · deadline {longDate(checklist.timing.action_deadline)}
-              </p></div>
+              {checklist?.timing?.notice_anchor_type === "term_end" || checklist?.timing?.notice_anchor_type === "renewal_start" ? (
+                <p className="cc-plain-english mt-1">
+                  {checklist.timing.notice_days_min} {checklist.timing.notice_basis || "calendar"} days before {longDate(checklist.timing.notice_anchor_type === "term_end" ? checklist.timing.current_term_end : checklist.timing.next_renewal_date)} · deadline {longDate(checklist.timing.action_deadline)}
+                </p>
+              ) : (
+                <p className="cc-days-remaining mt-1 text-ink-soft">
+                  Notice anchor requires review
+                </p>
+              )}</div>
 
             {/* Evidence Drawer */}
             <div className="pt-2 border-t border-rule">
