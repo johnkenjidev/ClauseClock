@@ -102,7 +102,107 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix mobile monitored contract count pluralization and remove duplicate legal footer disclaimer."
+user_problem_statement: "Rebuild mobile Contracts list on ground, wrap long titles, and hide in-page Add button."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Mobile Contracts List"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Rebuilt mobile contracts list directly on ground, with no card container background. Contract names wrap cleanly to max 2 lines with flex parent overflow fixes."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile (375px) and desktop (1920px) viewports. MOBILE: (1) Contracts list loads correctly with 10 rows. (2) NO card container background - list rendered directly on ground with border-t/border-b, NO bg-card or rounded-lg classes. (3) Long titles wrap cleanly to max 2 lines with line-clamp-2 and break-all/break-words classes, all titles fit within viewport. (4) Counterparty, doc count, and annual value visible in metadata line (e.g., 'No counterparty · 1 doc · $24,000'). (5) In-page 'Add a contract' button completely removed - desktop header hidden on mobile, mobile header has no Add button. DESKTOP: (1) Desktop list visible with card container (bg-card, rounded-lg). (2) Header 'Add a contract' button visible. (3) In-page 'Add a contract' button visible next to title. (4) Standard table layout with 10 contract rows. All requirements met perfectly."
+
+metadata:
+  created_by: "main_agent"
+  version: "5.1"
+  test_sequence: 7
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All mobile contracts list fixes verified and working"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile contracts list rebuild, title wrapping, and in-page Add button removal have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "MOBILE CONTRACTS LIST TESTING COMPLETE - All requirements verified and working perfectly on both mobile (375px) and desktop (1920px) viewports. MOBILE: Contracts list rendered directly on ground (no card background), titles wrap to max 2 lines with proper classes, metadata visible, in-page Add button removed. DESKTOP: Card container styling intact, header and in-page Add buttons visible, standard layout preserved. All 5 verification points from the review request passed. Ready for user acceptance."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Fix mobile monitored contract count pluralization and remove duplicate legal footer disclaimer."
+
 
 frontend:
   - task: "Mobile Navigation Fix"

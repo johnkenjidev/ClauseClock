@@ -388,3 +388,10 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Responsive & Scoped Animation**: Integrated the IntersectionObserver lamp-reveal scroll animation for the verbatim paper evidence section (`.paper.lit`), scoped uniquely inside the page wrapper.
 - **Disclosures**: Kept only the required synthetic data disclosure inside the primary action closing footer.
 - **QA Verification**: Formally linted with zero warnings and verified visually via Playwright browser screenshots.
+
+### Stage 16 — Mobile Contracts Rebuild (2026-08)
+- **Rebuilt Mobile Contracts List**: Redesigned `/contracts` lists on mobile viewports to render directly on the ground background (no bordering bg-card list background), creating an airy, solid text-first aesthetic. Left desktop layout untouched.
+- **Name Wrapping & Flex-Row Overflow Fixed**: Wrapped contract titles inside `break-all sm:break-words line-clamp-2` with `min-w-0 flex-1` styling to prevent horizontal flex layout overflow.
+- **In-Page Button Removal**: Hid the in-page "Add a contract" button next to the title on mobile viewports, leaving only the global header button to add agreements.
+- **Tabular Numeral Styling**: Rendered annual values with `font-mono tabular-nums text-xs` formatting underneath.
+- **QA Verification**: Formally verified using Playwright browser automation on mobile and desktop viewports, confirming 100% correct wrapping, button visibility, and list formatting on all screen sizes.

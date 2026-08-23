@@ -22,7 +22,8 @@ export default function Contracts() {
 
   return (
     <div data-testid={CONTRACTS.root}>
-      <div className="flex items-end justify-between">
+      {/* Desktop-only Header */}
+      <div className="hidden md:flex items-end justify-between">
         <div>
           <Eyebrow>Contracts</Eyebrow>
           <div className="cc-seal-rule mt-4" />
@@ -31,6 +32,12 @@ export default function Contracts() {
           className="bg-ink text-paper hover:bg-ink/90 rounded-full h-10 px-5">
           Add a contract
         </Button>
+      </div>
+
+      {/* Mobile-only Header */}
+      <div className="md:hidden">
+        <Eyebrow>Contracts</Eyebrow>
+        <div className="cc-seal-rule mt-3 mb-5" />
       </div>
 
       <div className="mt-8">
@@ -52,27 +59,52 @@ export default function Contracts() {
         )}
 
         {contracts && contracts.length > 0 && (
-          <ul className="divide-y divide-rule rounded-lg border border-rule bg-card overflow-hidden">
-            {contracts.map((c) => (
-              <li key={c.id}>
-                <button
-                  data-testid={`contract-row-${c.id}`}
-                  onClick={() => navigate(`/app/contracts/${c.id}`)}
-                  className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-card/50 transition-colors duration-150"
-                >
-                  <div>
-                    <p className="cc-finding-title">{c.name}</p>
-                    <p className="cc-days-remaining mt-1">
-                      {c.counterparty || "No counterparty"} · {c.document_count} document
-                      {c.document_count === 1 ? "" : "s"}
-                      {c.annual_value != null && <> · <span className="cc-money">{money(c.annual_value, c.currency)}</span></>}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-ink-soft" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            {/* Desktop Layout List */}
+            <ul className="hidden md:block divide-y divide-rule rounded-lg border border-rule bg-card overflow-hidden">
+              {contracts.map((c) => (
+                <li key={c.id}>
+                  <button
+                    data-testid={`contract-row-${c.id}`}
+                    onClick={() => navigate(`/app/contracts/${c.id}`)}
+                    className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-card/50 transition-colors duration-150"
+                  >
+                    <div>
+                      <p className="cc-finding-title">{c.name}</p>
+                      <p className="cc-days-remaining mt-1">
+                        {c.counterparty || "No counterparty"} · {c.document_count} document
+                        {c.document_count === 1 ? "" : "s"}
+                        {c.annual_value != null && <> · <span className="cc-money">{money(c.annual_value, c.currency)}</span></>}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-ink-soft" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {/* Mobile Layout List (directly on ground, no card container background) */}
+            <ul className="md:hidden divide-y divide-rule border-t border-b border-rule">
+              {contracts.map((c) => (
+                <li key={c.id} className="min-w-0 w-full">
+                  <button
+                    data-testid={`contract-row-${c.id}`}
+                    onClick={() => navigate(`/app/contracts/${c.id}`)}
+                    className="w-full py-4 flex items-center justify-between text-left hover:bg-card/10 transition-colors duration-150 min-w-0 gap-3"
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="cc-finding-title text-sm font-semibold line-clamp-2 break-all sm:break-words leading-snug">{c.name}</p>
+                      <p className="cc-days-remaining text-[11px] mt-1 text-ink-soft leading-normal">
+                        {c.counterparty || "No counterparty"} · {c.document_count} doc{c.document_count === 1 ? "" : "s"}
+                        {c.annual_value != null && <> · <span className="font-mono tabular-nums text-xs font-semibold text-ink">{money(c.annual_value, c.currency)}</span></>}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-ink-soft shrink-0" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>
