@@ -285,10 +285,6 @@ export default function Dashboard() {
             Go to Action Center
           </Button>
         </div>
-
-        <div className="mt-10">
-          <LegalFooter />
-        </div>
       </div>
 
       {/* Mobile-only layout (visible only below md breakpoint) */}
@@ -326,7 +322,9 @@ export default function Dashboard() {
         <div data-testid={DASHBOARD.metrics} className="grid grid-cols-2 gap-x-6 gap-y-5 py-4 border-t border-b border-rule">
           <div data-testid={DASHBOARD.contractsMonitored}>
             <span className="cc-eyebrow">Monitored</span>
-            <p className="font-archivo font-bold text-ink text-xl mt-1">{summary.contracts_monitored} contracts</p>
+            <p className="font-archivo font-bold text-ink text-xl mt-1">
+              {summary.contracts_monitored} {summary.contracts_monitored === 1 ? "contract" : "contracts"}
+            </p>
           </div>
           <div data-testid={DASHBOARD.valueUnderTracking}>
             <span className="cc-eyebrow">Value tracked</span>
@@ -416,10 +414,6 @@ export default function Dashboard() {
           >
             Go to Action Center
           </Button>
-        </div>
-
-        <div className="pt-6 border-t border-rule">
-          <LegalFooter />
         </div>
       </div>
     </div>

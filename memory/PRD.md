@@ -375,3 +375,8 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Reminder Wrapping & Stamp Red**: Handled flex-row wrapping inside reminders to prevent overflow and enable clean text scaling. Deadlines under 14 days use `text-stamp` red.
 - **Value by Contract Stack**: Replaced wide tables on mobile with a compact card list that highlights name, confirmed/pending amounts, and hides automatically when no rows exist.
 - **QA Verification**: Verified successfully using Playwright automation. 100% of Mobile layout constraints, element visibility, and no horizontal scroll assertions passed with zero defects.
+
+### Stage 14 — Pluralization & Duplicate Disclaimer Polish (2026-08)
+- **Monitored Count Pluralization**: Configured the mobile compact watch summary to pluralize monitored contracts correctly: `"1 contract"`, otherwise `"{n} contracts"`.
+- **Deduplicated Legal Footers**: Removed all local redundant `LegalFooter` instances in both desktop and mobile wrappers inside `Dashboard.jsx`, allowing the legal disclaimer to render exactly once via the global `AppShell` container.
+- **QA Verification**: Formally verified using Playwright browser automation on mobile and desktop viewports, confirming 100% correct pluralization logic and zero duplicate legal footers on all screen sizes.

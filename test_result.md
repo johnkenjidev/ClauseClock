@@ -102,7 +102,125 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix mobile Dashboard layout, compact watch summary, and overflow reminders."
+user_problem_statement: "Fix mobile monitored contract count pluralization and remove duplicate legal footer disclaimer."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Monitored Count Pluralization"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Correctly pluralizes monitored contracts in mobile watch summary: 1 contract, or {n} contracts."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Monitored section displays '10 contracts' with correct pluralization. Code review confirms line 330 implements correct logic: {summary.contracts_monitored === 1 ? 'contract' : 'contracts'}. Tested with count=10, displays 'contracts' correctly."
+
+  - task: "Remove Duplicate Mobile Legal Disclaimer"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Removed redundant LegalFooter wrapper inside the Dashboard mobile-only container, ensuring the disclaimer renders exactly once via the global AppShell wrapper."
+        - working: false
+          agent: "testing"
+          comment: "FAILED initial test. Legal footer appeared 2 times on both mobile and desktop. Root cause: Desktop layout in Dashboard.jsx (lines 289-291) still contained <LegalFooter /> component, causing duplicate with AppShell global footer."
+        - working: true
+          agent: "testing"
+          comment: "FIXED and VERIFIED. Removed LegalFooter from desktop layout in Dashboard.jsx (lines 289-291). Legal footer now appears exactly once on both mobile (375px) and desktop (1920px) viewports. Only the global AppShell footer (line 100-104 in AppShell.jsx) renders the legal disclaimer."
+
+metadata:
+  created_by: "main_agent"
+  version: "4.1"
+  test_sequence: 6
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All fixes verified and working"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The monitored count pluralization and duplicate legal footer disclaimer fixes have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "TESTING COMPLETE - Initial test revealed duplicate legal footer issue (appeared 2 times on both mobile and desktop). Root cause: Desktop layout in Dashboard.jsx still had LegalFooter component at lines 289-291. Fixed by removing it. Both tasks now verified working: (1) Monitored count pluralization displays '10 contracts' correctly on mobile. (2) Legal footer appears exactly once on both mobile (375px) and desktop (1920px) viewports. All requirements met."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Fix mobile Dashboard layout, compact watch summary, and overflow reminders."
+
 
 frontend:
   - task: "Mobile Navigation Fix"
