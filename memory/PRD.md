@@ -380,3 +380,11 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Monitored Count Pluralization**: Configured the mobile compact watch summary to pluralize monitored contracts correctly: `"1 contract"`, otherwise `"{n} contracts"`.
 - **Deduplicated Legal Footers**: Removed all local redundant `LegalFooter` instances in both desktop and mobile wrappers inside `Dashboard.jsx`, allowing the legal disclaimer to render exactly once via the global `AppShell` container.
 - **QA Verification**: Formally verified using Playwright browser automation on mobile and desktop viewports, confirming 100% correct pluralization logic and zero duplicate legal footers on all screen sizes.
+
+### Stage 15 — Public Homepage Redesign (2026-08)
+- **1:1 Homepage Mockup Adherence**: Replaced `/` completely with the exact structure, copy, and styles of the approved `clauseclock-homepage-1.html` as the sole source of truth.
+- **Copy Adjustment**: Replaced `"Nine kinds of obligation and right..."` with `"Nine kinds of contract terms ClauseClock watches."` in the section 2 catches heading.
+- **Grounded CTA Routing**: Wired all primary CTAs (`"Upload a contract"`) to the existing `/signup` destination, header sign-in link to `/login`, and product tour links to `/demo` perfectly.
+- **Responsive & Scoped Animation**: Integrated the IntersectionObserver lamp-reveal scroll animation for the verbatim paper evidence section (`.paper.lit`), scoped uniquely inside the page wrapper.
+- **Disclosures**: Kept only the required synthetic data disclosure inside the primary action closing footer.
+- **QA Verification**: Formally linted with zero warnings and verified visually via Playwright browser screenshots.
