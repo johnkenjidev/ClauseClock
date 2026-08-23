@@ -213,18 +213,57 @@ function OutcomeForm({ findingId }) {
   );
 }
 
+const PURPOSE_LABEL = {
+  effective_date: "Effective date",
+  renewal_term: "Renewal term",
+  notice_period: "Notice period",
+  notice_method: "Notice method",
+  notice_recipient: "Notice recipient",
+  business_day_definition: "Business day definition",
+  deemed_receipt: "Deemed receipt",
+  notice_anchor: "Notice anchor",
+  notice_anchor_prior: "Notice anchor — prior extraction (not applied)",
+  value: "Contract value",
+  increase: "Price increase",
+  objection: "Objection window",
+  increase_basis: "What it applies to",
+  termination_right: "Termination right",
+  effective_timing: "Effective timing",
+  termination_fee: "Termination fee",
+  obligation: "Clause",
+  window: "Timing window",
+  amount: "Amount",
+  party: "Who it applies to",
+  method: "Method",
+};
+
+const getUniqueSources = (sources) => {
+  if (!sources?.length) return [];
+  const seen = new Set();
+  const result = [];
+  for (const s of sources) {
+    const key = `${s.location || ""}:${s.quote || ""}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(s);
+    }
+  }
+  return result;
+};
+
 function ChecklistPanel({ item }) {
   const [checklist, setChecklist] = useState(null);
   const [draft, setDraft] = useState(null);
   const [drafting, setDrafting] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const isRenewal = item?.type === "renewal_notice";
 
   useEffect(() => {
     if (item && item.type === "renewal_notice") {
-      setChecklist(null); setDraft(null);
+      setChecklist(null); setDraft(null); setEvidenceOpen(false);
       api.get(`/findings/${item.id}/checklist`).then((r) => setChecklist(r.data)).catch(() => {});
     } else {
-      setChecklist(null); setDraft(null);
+      setChecklist(null); setDraft(null); setEvidenceOpen(false);
     }
   }, [item]);
 
@@ -242,6 +281,9 @@ function ChecklistPanel({ item }) {
     </div>
   );
 
+  const dr = item.extracted?.days_remaining;
+  const urgent = dr != null && dr <= 14;
+
   // Obligation finding types — reuse the same action workflow (log action,
   // record outcome, evidence) grounded in the finding's validated sources.
   // No renewal Notice Checklist / non-renewal draft (renewal-only).
@@ -249,6 +291,15 @@ function ChecklistPanel({ item }) {
     const e = item.extracted || {};
     return (
       <div data-testid="checklist-panel" className="pb-8">
+        {urgent && (
+          <div className="mb-5 rounded-md border border-stamp/40 bg-stamp/5 px-4 py-3 flex items-start gap-3" data-testid="urgent-alert">
+            <AlertTriangle className="h-4 w-4 text-stamp mt-0.5 shrink-0" strokeWidth={2.5} />
+            <div className="cc-days-remaining text-stamp font-semibold">
+              Urgent Action Required · Only {dr} days remaining to give valid notice.
+            </div>
+          </div>
+        )}
+
         <p className="cc-finding-title">{item.contract_name} — {TYPE_LABEL[item.type] || "Action required"}</p>
         <div className="cc-seal-rule mt-3 mb-5" />
         <div className="mt-2 space-y-6">
@@ -267,8 +318,35 @@ function ChecklistPanel({ item }) {
             <div><Eyebrow>Suggested action</Eyebrow>
               <p className="cc-plain-english mt-1">{item.suggested_action}</p></div>
           )}
-          <div><Eyebrow>From the contract</Eyebrow>
-            <Provenance sources={item.sources} /></div>
+
+          {/* Evidence Drawer */}
+          <div className="pt-2 border-t border-rule">
+            <button 
+              onClick={() => setEvidenceOpen(!evidenceOpen)}
+              className="cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors font-semibold"
+              data-testid="evidence-drawer-toggle"
+            >
+              {evidenceOpen ? "Hide contract evidence ⌃" : "Show contract evidence ⌄"}
+            </button>
+            
+            {evidenceOpen && (
+              <div className="mt-3 space-y-4 p-4 bg-document text-document-ink border border-document-rule rounded-md shadow-sm" data-testid="evidence-drawer">
+                <p className="cc-section-ref !text-document-soft mb-2 uppercase font-bold tracking-wider text-[10px]">Verbatim Contract Language</p>
+                {getUniqueSources(item.sources).map((s, i) => (
+                  <div key={i} className="border-l-2 border-document-soft pl-3 py-1">
+                    <div className="flex justify-between text-[11px] text-document-soft font-semibold uppercase tracking-wider">
+                      <span>{PURPOSE_LABEL[s.purpose] || s.purpose}</span>
+                      <span className="cc-section-ref !text-document-soft">{s.location}</span>
+                    </div>
+                    <p className="cc-clause mt-1 text-xs font-mono leading-relaxed">
+                      &ldquo;{s.quote}&rdquo;
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <LogActionForm findingId={item.id} contractMethod={null} />
           <OutcomeForm findingId={item.id} />
         </div>
@@ -276,8 +354,21 @@ function ChecklistPanel({ item }) {
     );
   }
 
+  const anchorDate = checklist?.timing?.notice_anchor_type === "term_end"
+    ? checklist?.timing?.current_term_end
+    : checklist?.timing?.next_renewal_date;
+
   return (
     <div data-testid="checklist-panel" className="pb-8">
+      {urgent && (
+        <div className="mb-5 rounded-md border border-stamp/40 bg-stamp/5 px-4 py-3 flex items-start gap-3" data-testid="urgent-alert">
+          <AlertTriangle className="h-4 w-4 text-stamp mt-0.5 shrink-0" strokeWidth={2.5} />
+          <div className="cc-days-remaining text-stamp font-semibold">
+            Urgent Action Required · Only {dr} days remaining to give valid notice.
+          </div>
+        </div>
+      )}
+
       <p className="cc-finding-title">{item.contract_name} — Notice checklist</p>
       <div className="cc-seal-rule mt-3 mb-5" />
         {!checklist ? <p className="cc-days-remaining mt-2">Loading…</p> : (
@@ -288,20 +379,43 @@ function ChecklistPanel({ item }) {
             </div>
 
             <div><Eyebrow>Required method</Eyebrow>
-              <p className="cc-plain-english mt-1">{checklist.method.value || "Not stated in contract"}</p>
-              <Provenance sources={checklist.method.sources} /></div>
+              <p className="cc-plain-english mt-1">{checklist.method.value || "Not stated in contract"}</p></div>
 
             <div><Eyebrow>Recipient / address</Eyebrow>
-              <p className="cc-plain-english mt-1">{checklist.recipient.value || "Not stated in contract"}</p>
-              <Provenance sources={checklist.recipient.sources} /></div>
+              <p className="cc-plain-english mt-1">{checklist.recipient.value || "Not stated in contract"}</p></div>
 
             <div><Eyebrow>Timing</Eyebrow>
               <p className="cc-plain-english mt-1">
-                {checklist.timing.notice_days_min} {checklist.timing.notice_basis || "calendar"} days before {longDate(checklist.timing.next_renewal_date)} · deadline {longDate(checklist.timing.action_deadline)}
-              </p>
-              <Provenance sources={checklist.timing.sources} /></div>
+                {checklist.timing.notice_days_min} {checklist.timing.notice_basis || "calendar"} days before {longDate(anchorDate)} · deadline {longDate(checklist.timing.action_deadline)}
+              </p></div>
 
-            <div><Eyebrow>Renewal term</Eyebrow><Provenance sources={checklist.renewal_term.sources} /></div>
+            {/* Evidence Drawer */}
+            <div className="pt-2 border-t border-rule">
+              <button 
+                onClick={() => setEvidenceOpen(!evidenceOpen)}
+                className="cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors font-semibold"
+                data-testid="evidence-drawer-toggle"
+              >
+                {evidenceOpen ? "Hide contract evidence ⌃" : "Show contract evidence ⌄"}
+              </button>
+              
+              {evidenceOpen && (
+                <div className="mt-3 space-y-4 p-4 bg-document text-document-ink border border-document-rule rounded-md shadow-sm" data-testid="evidence-drawer">
+                  <p className="cc-section-ref !text-document-soft mb-2 uppercase font-bold tracking-wider text-[10px]">Verbatim Contract Language</p>
+                  {getUniqueSources(item.sources).map((s, i) => (
+                    <div key={i} className="border-l-2 border-document-soft pl-3 py-1">
+                      <div className="flex justify-between text-[11px] text-document-soft font-semibold uppercase tracking-wider">
+                        <span>{PURPOSE_LABEL[s.purpose] || s.purpose}</span>
+                        <span className="cc-section-ref !text-document-soft">{s.location}</span>
+                      </div>
+                      <p className="cc-clause mt-1 text-xs font-mono leading-relaxed">
+                        &ldquo;{s.quote}&rdquo;
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="pt-2 border-t border-rule">
               <Button onClick={generate} disabled={drafting} data-testid="generate-draft-btn"

@@ -903,6 +903,8 @@ async def notice_checklist(finding_id: str, user_id: str = Depends(current_user_
             "notice_basis": e.get("notice_basis"),
             "next_renewal_date": e.get("next_renewal_date"),
             "action_deadline": e.get("effective_action_deadline"),
+            "current_term_end": e.get("current_term_end"),
+            "notice_anchor_type": e.get("notice_anchor_type"),
             "sources": by_purpose.get("notice_period", []),
         },
         "renewal_term": {"sources": by_purpose.get("renewal_term", [])},
