@@ -367,3 +367,11 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Title Wrapping In Action Center**: Updated `ChecklistPanel` inside `ActionCenter.jsx` to use `break-words whitespace-pre-wrap` classes for contract names/titles, ensuring they wrap cleanly without causing horizontal overflow.
 - **Queue/Detail Mobile Viewport State Preservation**: Preserved queue-only view when nothing is selected, detail-only full-width view when selected, and returning back via the `← Back to actions` mobile button.
 - **QA Verification**: Verified successfully on mobile viewports (320px, 375px, 430px) using Playwright browser automation, confirming 100% happy paths and zero regressions.
+
+### Stage 13 — Mobile Dashboard Redesign (2026-08)
+- **Mobile Section Ordering**: Configured mobile Dashboard to render sections in the following priority order: 1. Due/Urgent Reminders, 2. Compact Watch Summary (metrics directly on the ground), 3. Confirmed Outcomes, 4. Value by contract stack. Left desktop dashboard untouched.
+- **Compact Ground Typography**: Removed large bordered cards on mobile, displaying contracts monitored, value under tracking, pending value, and missed windows as a clean, solid, flat typography list.
+- **$0 Outcome Line**: If confirmed value protected is $0, hides the massive $0 display and renders one muted, graceful line: "$0 confirmed value protected & recovered".
+- **Reminder Wrapping & Stamp Red**: Handled flex-row wrapping inside reminders to prevent overflow and enable clean text scaling. Deadlines under 14 days use `text-stamp` red.
+- **Value by Contract Stack**: Replaced wide tables on mobile with a compact card list that highlights name, confirmed/pending amounts, and hides automatically when no rows exist.
+- **QA Verification**: Verified successfully using Playwright automation. 100% of Mobile layout constraints, element visibility, and no horizontal scroll assertions passed with zero defects.

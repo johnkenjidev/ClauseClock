@@ -102,7 +102,92 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix mobile navigation overflow, selected action center long titles wrap, and preserve queue behavior on Action Center."
+user_problem_statement: "Fix mobile Dashboard layout, compact watch summary, and overflow reminders."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). All requirements met: (1) No horizontal overflow (scrollWidth=clientWidth=375px). (2) Section order correct: Compact Watch Summary → Confirmed Outcomes → Value By Contract (Due reminders would appear first if present, but none in test data). (3) Desktop StatCards properly hidden, mobile uses compact grid-cols-2 typography. (4) $0 confirmed value correctly rendered as muted italicized text. (5) Value by Contract uses compact stacked blocks (not HTML table), all 10 contract rows wrap cleanly with break-words. (6) Code review confirms urgent reminders (≤14 days) use text-stamp class and break-words for wrapping. Desktop layout properly hidden (display:none), mobile layout fully functional."
+
+metadata:
+  created_by: "main_agent"
+  version: "3.1"
+  test_sequence: 5
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All mobile dashboard layout fixes verified and working"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile dashboard layout has been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "MOBILE DASHBOARD LAYOUT TESTING COMPLETE - All requirements verified and working correctly on 375px mobile viewport. No horizontal overflow, proper section ordering, compact metrics without bordered cards, $0 value handling with italic styling, and compact stacked contract list. Desktop layout properly hidden. Code review confirms text-stamp class for urgent reminders. Ready for user acceptance."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Fix mobile navigation overflow, selected action center long titles wrap, and preserve queue behavior on Action Center."
+
 
 frontend:
   - task: "Mobile Navigation Fix"

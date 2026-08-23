@@ -30,6 +30,13 @@ const longDate = (iso) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 };
 
+const deadlineDays = (deadlineIso) => {
+  if (!deadlineIso) return 999;
+  const [y, m, d] = deadlineIso.split("-").map(Number);
+  const diffTime = new Date(y, m - 1, d) - new Date();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 const StatCard = ({ label, value, sub, testId, tone }) => (
   <div
     data-testid={testId}
@@ -147,138 +154,273 @@ export default function Dashboard() {
   const cur = summary.currency || "USD";
 
   return (
-    <div data-testid={DASHBOARD.root} className="max-w-5xl">
-      <Eyebrow>Your workspace</Eyebrow>
-      <div className="cc-seal-rule mt-4 mb-6" />
+    <div data-testid={DASHBOARD.root}>
+      {/* Desktop-only layout */}
+      <div className="hidden md:block max-w-5xl">
+        <Eyebrow>Your workspace</Eyebrow>
+        <div className="cc-seal-rule mt-4 mb-6" />
 
-      {/* Headline — confirmed value protected (confirmed outcomes only). */}
-      <div
-        data-testid={DASHBOARD.confirmedValueProtected}
-        className="rounded-lg border border-rule bg-card p-8"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="cc-eyebrow">Confirmed value protected &amp; recovered</p>
-            <p className="cc-hero-date mt-4">
-              {money(summary.confirmed_value_protected, cur)}
-            </p>
-            <p className="cc-days-remaining mt-3">
-              From confirmed outcomes only.
-              {summary.pending_value > 0
-                ? ` ${money(summary.pending_value, cur)} pending confirmation.`
-                : " No outcomes are awaiting confirmation."}
-            </p>
+        {/* Headline — confirmed value protected (confirmed outcomes only). */}
+        <div
+          data-testid={DASHBOARD.confirmedValueProtected}
+          className="rounded-lg border border-rule bg-card p-8"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="cc-eyebrow">Confirmed value protected &amp; recovered</p>
+              <p className="cc-hero-date mt-4">
+                {money(summary.confirmed_value_protected, cur)}
+              </p>
+              <p className="cc-days-remaining mt-3">
+                From confirmed outcomes only.
+                {summary.pending_value > 0
+                  ? ` ${money(summary.pending_value, cur)} pending confirmation.`
+                  : " No outcomes are awaiting confirmation."}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              data-testid={DASHBOARD.savingsReportBtn}
+              onClick={downloadReport}
+              className="rounded-full h-10 px-4 gap-1.5 border-rule text-ink hover:bg-paper shrink-0"
+            >
+              <Download className="h-4 w-4" /> Savings report
+            </Button>
           </div>
+        </div>
+
+        {/* Reminders due (in-app, no scheduler) */}
+        {reminders.due_count > 0 && (
+          <div data-testid={DASHBOARD.remindersDue} className="mt-6 rounded-lg border border-pending/40 bg-paper p-6">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-pending" strokeWidth={2} />
+              <p className="cc-eyebrow">Reminders due ({reminders.due_count})</p>
+            </div>
+            <ul className="mt-4 space-y-2">
+              {reminders.reminders.filter((r) => r.due).map((r) => (
+                <li key={r.id}
+                  className="flex items-center justify-between rounded-md border border-rule bg-card px-4 py-2 cursor-pointer hover:bg-card/70"
+                  onClick={() => navigate(`/app/contracts/${r.contract_id}`)}>
+                  <span className="cc-plain-english text-ink">{r.contract_name || "Contract"}</span>
+                  <span className="cc-days-remaining">deadline {longDate(r.deadline)} · reminder set {r.days_before}d before</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div
+          data-testid={DASHBOARD.metrics}
+          className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          <StatCard
+            testId={DASHBOARD.contractsMonitored}
+            label="Contracts monitored"
+            value={summary.contracts_monitored}
+          />
+          <StatCard
+            testId={DASHBOARD.valueUnderTracking}
+            label="Value under tracking"
+            value={money(summary.value_under_tracking, cur)}
+            sub="Total annual contract value"
+          />
+          <StatCard
+            testId={DASHBOARD.pendingValue}
+            label="Pending value"
+            value={money(summary.pending_value, cur)}
+            sub="Recorded, awaiting confirmation"
+          />
+          <StatCard
+            testId={DASHBOARD.windowsMissed}
+            label="Windows missed"
+            value={summary.windows_missed}
+            sub="Deadlines recorded as missed"
+          />
+        </div>
+
+        {byContract.length > 0 && (
+          <div data-testid={DASHBOARD.valueByContract} className="mt-8">
+            <Eyebrow>Value by contract</Eyebrow>
+            <div className="cc-seal-rule mt-4 mb-5" />
+            <div className="rounded-lg border border-rule bg-paper overflow-hidden">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-rule">
+                    <th className="cc-eyebrow px-5 py-3">Contract</th>
+                    <th className="cc-eyebrow px-5 py-3 text-right">Confirmed</th>
+                    <th className="cc-eyebrow px-5 py-3 text-right">Pending</th>
+                    <th className="cc-eyebrow px-5 py-3 text-right">Outcomes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byContract.map((c) => (
+                    <tr key={c.contract_id}
+                      className="border-b border-rule/60 last:border-0 cursor-pointer hover:bg-card/50"
+                      data-testid={`value-row-${c.contract_id}`}
+                      onClick={() => navigate(`/app/contracts/${c.contract_id}`)}>
+                      <td className="cc-plain-english px-5 py-3 text-ink">{c.name}</td>
+                      <td className="cc-money px-5 py-3 text-right">{money(c.confirmed_value, c.currency)}</td>
+                      <td className="cc-days-remaining px-5 py-3 text-right">{money(c.pending_value, c.currency)}</td>
+                      <td className="cc-days-remaining px-5 py-3 text-right">{c.outcome_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button
+            onClick={() => navigate("/app/upload")}
+            className="bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6"
+          >
+            Add a contract
+          </Button>
           <Button
             variant="outline"
-            data-testid={DASHBOARD.savingsReportBtn}
-            onClick={downloadReport}
-            className="rounded-full h-10 px-4 gap-1.5 border-rule text-ink hover:bg-paper shrink-0"
+            onClick={() => navigate("/app/action-center")}
+            className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
           >
-            <Download className="h-4 w-4" /> Savings report
+            Go to Action Center
           </Button>
         </div>
-      </div>
 
-      {/* Reminders due (in-app, no scheduler) */}
-      {reminders.due_count > 0 && (
-        <div data-testid={DASHBOARD.remindersDue} className="mt-6 rounded-lg border border-pending/40 bg-paper p-6">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-pending" strokeWidth={2} />
-            <p className="cc-eyebrow">Reminders due ({reminders.due_count})</p>
-          </div>
-          <ul className="mt-4 space-y-2">
-            {reminders.reminders.filter((r) => r.due).map((r) => (
-              <li key={r.id}
-                className="flex items-center justify-between rounded-md border border-rule bg-card px-4 py-2 cursor-pointer hover:bg-card/70"
-                onClick={() => navigate(`/app/contracts/${r.contract_id}`)}>
-                <span className="cc-plain-english text-ink">{r.contract_name || "Contract"}</span>
-                <span className="cc-days-remaining">deadline {longDate(r.deadline)} · reminder set {r.days_before}d before</span>
-              </li>
-            ))}
-          </ul>
+        <div className="mt-10">
+          <LegalFooter />
         </div>
-      )}
-
-      <div
-        data-testid={DASHBOARD.metrics}
-        className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        <StatCard
-          testId={DASHBOARD.contractsMonitored}
-          label="Contracts monitored"
-          value={summary.contracts_monitored}
-        />
-        <StatCard
-          testId={DASHBOARD.valueUnderTracking}
-          label="Value under tracking"
-          value={money(summary.value_under_tracking, cur)}
-          sub="Total annual contract value"
-        />
-        <StatCard
-          testId={DASHBOARD.pendingValue}
-          label="Pending value"
-          value={money(summary.pending_value, cur)}
-          sub="Recorded, awaiting confirmation"
-        />
-        <StatCard
-          testId={DASHBOARD.windowsMissed}
-          label="Windows missed"
-          value={summary.windows_missed}
-          sub="Deadlines recorded as missed"
-        />
       </div>
 
-      {byContract.length > 0 && (
-        <div data-testid={DASHBOARD.valueByContract} className="mt-8">
-          <Eyebrow>Value by contract</Eyebrow>
-          <div className="cc-seal-rule mt-4 mb-5" />
-          <div className="rounded-lg border border-rule bg-paper overflow-hidden">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-rule">
-                  <th className="cc-eyebrow px-5 py-3">Contract</th>
-                  <th className="cc-eyebrow px-5 py-3 text-right">Confirmed</th>
-                  <th className="cc-eyebrow px-5 py-3 text-right">Pending</th>
-                  <th className="cc-eyebrow px-5 py-3 text-right">Outcomes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byContract.map((c) => (
-                  <tr key={c.contract_id}
-                    className="border-b border-rule/60 last:border-0 cursor-pointer hover:bg-card/50"
-                    data-testid={`value-row-${c.contract_id}`}
-                    onClick={() => navigate(`/app/contracts/${c.contract_id}`)}>
-                    <td className="cc-plain-english px-5 py-3 text-ink">{c.name}</td>
-                    <td className="cc-money px-5 py-3 text-right">{money(c.confirmed_value, c.currency)}</td>
-                    <td className="cc-days-remaining px-5 py-3 text-right">{money(c.pending_value, c.currency)}</td>
-                    <td className="cc-days-remaining px-5 py-3 text-right">{c.outcome_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Mobile-only layout (visible only below md breakpoint) */}
+      <div className="md:hidden space-y-8 animate-cc-settle">
+        <Eyebrow>Your workspace</Eyebrow>
+        <div className="cc-seal-rule mt-3 mb-5" />
+
+        {/* 1. Due/Urgent Reminder First */}
+        {reminders.due_count > 0 && (
+          <div data-testid={DASHBOARD.remindersDue} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-pending" strokeWidth={2} />
+              <span className="cc-eyebrow">Reminders due ({reminders.due_count})</span>
+            </div>
+            <ul className="space-y-2">
+              {reminders.reminders.filter((r) => r.due).map((r) => {
+                const isUrgent = deadlineDays(r.deadline) <= 14;
+                return (
+                  <li key={r.id}
+                    onClick={() => navigate(`/app/contracts/${r.contract_id}`)}
+                    className="flex flex-col gap-1.5 p-4 rounded bg-card border border-rule cursor-pointer hover:bg-card/70 w-full min-w-0"
+                  >
+                    <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0">{r.contract_name || "Contract"}</span>
+                    <span className={"cc-days-remaining text-xs leading-relaxed break-words shrink-0 " + (isUrgent ? "text-stamp font-medium" : "text-ink-soft")}>
+                      deadline {longDate(r.deadline)} · reminder set {r.days_before}d before
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* 2. Compact Watch Summary (metrics on the ground, no bordered cards) */}
+        <div data-testid={DASHBOARD.metrics} className="grid grid-cols-2 gap-x-6 gap-y-5 py-4 border-t border-b border-rule">
+          <div data-testid={DASHBOARD.contractsMonitored}>
+            <span className="cc-eyebrow">Monitored</span>
+            <p className="font-archivo font-bold text-ink text-xl mt-1">{summary.contracts_monitored} contracts</p>
+          </div>
+          <div data-testid={DASHBOARD.valueUnderTracking}>
+            <span className="cc-eyebrow">Value tracked</span>
+            <p className="font-archivo font-bold text-ink text-xl mt-1">{money(summary.value_under_tracking, cur)}</p>
+            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Annual contract value</p>
+          </div>
+          <div data-testid={DASHBOARD.pendingValue}>
+            <span className="cc-eyebrow">Pending</span>
+            <p className="font-archivo font-bold text-ink text-xl mt-1">{money(summary.pending_value, cur)}</p>
+            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Awaiting confirmation</p>
+          </div>
+          <div data-testid={DASHBOARD.windowsMissed}>
+            <span className="cc-eyebrow">Missed</span>
+            <p className="font-archivo font-bold text-ink text-xl mt-1">{summary.windows_missed}</p>
+            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Windows missed</p>
           </div>
         </div>
-      )}
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Button
-          onClick={() => navigate("/app/upload")}
-          className="bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6"
-        >
-          Add a contract
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/app/action-center")}
-          className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
-        >
-          Go to Action Center
-        </Button>
-      </div>
+        {/* 3. Confirmed Outcomes (with Savings Report as secondary) */}
+        <div data-testid={DASHBOARD.confirmedValueProtected} className="space-y-3">
+          <span className="cc-eyebrow">Outcomes &amp; Protections</span>
+          {summary.confirmed_value_protected === 0 ? (
+            <p className="cc-days-remaining text-ink-soft text-sm italic">
+              $0 confirmed value protected &amp; recovered
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1 bg-card/40 p-4 border border-rule rounded-sm">
+              <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider">Confirmed value protected &amp; recovered</span>
+              <p className="font-archivo font-black text-ink text-2xl mt-1">
+                {money(summary.confirmed_value_protected, cur)}
+              </p>
+              <p className="cc-days-remaining text-xs mt-1 text-ink-soft leading-relaxed">
+                From confirmed outcomes. {summary.pending_value > 0 ? `${money(summary.pending_value, cur)} pending.` : ""}
+              </p>
+            </div>
+          )}
+          <div className="pt-1">
+            <button 
+              data-testid={DASHBOARD.savingsReportBtn}
+              onClick={downloadReport} 
+              className="cc-section-ref text-seal hover:underline flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer text-xs"
+            >
+              <Download className="h-3.5 w-3.5" /> Download Savings Report
+            </button>
+          </div>
+        </div>
 
-      <div className="mt-10">
-        <LegalFooter />
+        {/* 4. Value By Contract (compact, hidden if zero rows) */}
+        {byContract.length > 0 && (
+          <div data-testid={DASHBOARD.valueByContract} className="space-y-3">
+            <span className="cc-eyebrow">Value by contract</span>
+            <div className="cc-seal-rule mt-2 mb-3" />
+            <div className="border border-rule divide-y divide-rule bg-card rounded overflow-hidden">
+              {byContract.map((c) => (
+                <div 
+                  key={c.contract_id} 
+                  onClick={() => navigate(`/app/contracts/${c.contract_id}`)}
+                  className="p-4 flex flex-col gap-2 cursor-pointer hover:bg-card/70"
+                  data-testid={`value-row-${c.contract_id}`}
+                >
+                  <div className="flex justify-between items-start gap-4">
+                    <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0 flex-1">{c.name}</span>
+                    <span className="font-mono text-xs text-seal shrink-0">{money(c.confirmed_value, c.currency)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-ink-soft">
+                    <span>{c.outcome_count} {c.outcome_count === 1 ? "outcome" : "outcomes"}</span>
+                    <span>Pending: {money(c.pending_value, c.currency)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CTAs */}
+        <div className="flex flex-col gap-3 pt-4">
+          <Button
+            onClick={() => navigate("/app/upload")}
+            className="w-full bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6 font-semibold"
+          >
+            Add a contract
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/app/action-center")}
+            className="w-full rounded-full h-11 px-6 border-rule text-ink hover:bg-card font-semibold"
+          >
+            Go to Action Center
+          </Button>
+        </div>
+
+        <div className="pt-6 border-t border-rule">
+          <LegalFooter />
+        </div>
       </div>
     </div>
   );
