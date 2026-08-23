@@ -93,10 +93,10 @@ export default function Contracts() {
                     className="w-full py-4 flex items-center justify-between text-left hover:bg-card/10 transition-colors duration-150 min-w-0 gap-3"
                   >
                     <div className="min-w-0 flex-1 pr-2">
-                      <p className="cc-finding-title text-sm font-semibold line-clamp-2 break-all sm:break-words leading-snug">{c.name}</p>
+                      <p className="cc-finding-title text-sm font-semibold line-clamp-2 break-words leading-snug min-w-0 flex-1">{c.name}</p>
                       <p className="cc-days-remaining text-[11px] mt-1 text-ink-soft leading-normal">
                         {c.counterparty || "No counterparty"} · {c.document_count} doc{c.document_count === 1 ? "" : "s"}
-                        {c.annual_value != null && <> · <span className="font-mono tabular-nums text-xs font-semibold text-ink">{money(c.annual_value, c.currency)}</span></>}
+                        {c.annual_value != null && <> · <span className="cc-money text-xs">{money(c.annual_value, c.currency)}</span></>}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-ink-soft shrink-0" />

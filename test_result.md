@@ -102,7 +102,232 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Rebuild mobile Contracts list on ground, wrap long titles, and hide in-page Add button."
+user_problem_statement: "Rebuild mobile contract detail hierarchy, wrap long titles, collapse evidence drawer, and format reminders."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - trend: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Mobile Contracts List"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Rebuilt mobile contracts list directly on ground, with no card container background. Contract names wrap cleanly to max 2 lines with flex parent overflow fixes."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Rebuilt contracts list renders directly on ground (no card wrapper). Rows have correct margins, titles clamped to 2 lines, and Add a contract button hidden cleanly on mobile."
+
+  - task: "Mobile Contract Detail"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Reordered mobile contract detail layout: identity, urgent finding, explanation, source quotes, reminders, timeline, and document text. Removed annual value card, collapsed evidence quotes, and handled past reminders."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile (375px) and desktop (1920px) viewports. MOBILE: (1) Contract Detail loads correctly. (2) Title wraps to max 2 lines with break-words and line-clamp-2 classes (width: 327px < 375px viewport). (3) Annual value correctly rendered as inline meta text 'No counterparty · 1 doc · $24,000' with cc-money styling, large card hidden (display: none). (4) Re-analyze button is quiet uppercase text button (bg-transparent, border-0, uppercase classes). (5) FindingCard mobile structure correct: timing fact visible, action button below, explanation with disclosure, contract language drawer collapsed by default. (6) Document raw text collapsed by default with toggle button. (7) Code review confirms past reminders use 'reminder date passed...' format (line 751 FindingCard.jsx). (8) Code review confirms timeline markers use neutral styling (bg-ink-soft, border, bg-paper) and font-sans (lines 398-399 ContractDetail.jsx). DESKTOP: (1) Desktop layout visible with .hidden.md:block. (2) Large bordered annual-value card visible with eyebrow and cc-money. (3) Side-by-side structures present. (4) Large re-analyze button with bg-seal and rounded-full. All requirements met."
+
+metadata:
+  created_by: "main_agent"
+  version: "7.0"
+  test_sequence: 8
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Mobile Contract Detail"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile contract detail and finding card redesign have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "MOBILE CONTRACT DETAIL TESTING COMPLETE - All requirements verified and working perfectly on both mobile (375px) and desktop (1920px) viewports. MOBILE: Title wraps correctly with break-words/line-clamp-2, annual value shown as inline meta text with cc-money styling (verified with contract 6a86c43d425ca5752a3a443b showing '$24,000'), large annual value card hidden (display: none), re-analyze button is quiet uppercase text, FindingCard mobile structure correct with timing fact/action button/explanation/disclosure, contract language drawer collapsed by default, document text collapsed by default. DESKTOP: Desktop layout visible, large bordered annual-value card present, side-by-side structures intact, large re-analyze button with proper styling. Code review confirms past reminders format ('reminder date passed...') and timeline neutral styling (bg-ink-soft, font-sans) are correctly implemented. Ready for user acceptance."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Fix mobile contracts title break-words wrapping and money styling."
+
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Mobile Contracts List"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Rebuilt mobile contracts list directly on ground, with no card container background. Contract names wrap cleanly to max 2 lines with flex parent overflow fixes."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Rebuilt contracts list renders directly on ground (no card wrapper). Rows have correct margins, titles clamped to 2 lines, and Add a contract button hidden cleanly on mobile."
+
+  - task: "Mobile Contracts Title wrapping & Money styling"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Replaced break-all on contract names with normal break-words overflow wrapping keeping line-clamp-2, and styled annual value using existing cc-money tabular numerals."
+
+metadata:
+  created_by: "main_agent"
+  version: "6.0"
+  test_sequence: 7
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Mobile Contracts Title wrapping & Money styling"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile contracts list title break-words wrapping and money styling corrections have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Rebuild mobile Contracts list on ground, wrap long titles, and hide in-page Add button."
+
 
 frontend:
   - task: "Mobile Navigation Fix"

@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Check, Pencil, X, Bell, Trash2 } from "lucide-react";
+import { ChevronDown, Check, Pencil, X, Bell, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { LegalFooter, FindingBanner } from "@/components/cc/Primitives";
@@ -182,6 +182,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [explanationOpen, setExplanationOpen] = useState(false);
   const e = finding.extracted || {};
   const navigate = useNavigate();
   const isPrice = finding.type === "price_increase";
@@ -216,10 +217,28 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
 
   const heroIso = e.effective_action_deadline;
 
+  const renderAnchorFact = () => {
+    const anchorType = e.notice_anchor_type;
+    const days = e.notice_days_min;
+    const basis = e.notice_basis || "calendar";
+    if (anchorType === "term_end") {
+      return `Term ends ${longDate(e.current_term_end)} + ${days} ${basis} days notice → ${longDate(e.effective_action_deadline)}`;
+    } else if (anchorType === "renewal_start") {
+      return `Renews ${longDate(e.next_renewal_date)} + ${days} ${basis} days notice → ${longDate(e.effective_action_deadline)}`;
+    } else {
+      return "Anchor requires review";
+    }
+  };
+
+  const dr = e.days_remaining;
+  const urgent = dr != null && dr <= 14 && finding.action_required;
+
   return (
     <div data-testid={`finding-${finding.id}`}
       className="rounded-lg border border-rule bg-card overflow-hidden">
-      <div className="p-6">
+      
+      {/* Desktop-only view */}
+      <div className="hidden md:block p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
             <p className="cc-eyebrow">{isComposite ? "Renewal + price increase" : isTermination ? "Termination right" : isGeneric ? GENERIC_LABEL[finding.type] : isPrice ? "Price increase" : "Automatic renewal"}</p>
@@ -534,6 +553,118 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         </button>
       </div>
 
+      {/* Mobile-only view */}
+      <div className="md:hidden p-5 space-y-4">
+        {/* Finding header / type */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="cc-eyebrow font-sans text-ink-soft">
+              {isComposite ? "Renewal + price increase" : isTermination ? "Termination right" : isGeneric ? GENERIC_LABEL[finding.type] : isPrice ? "Price increase" : "Automatic renewal"}
+            </p>
+            {finding.rank_category && (
+              <span className="text-xs font-sans text-ink-soft mt-1 block">
+                {RANK_LABEL[finding.rank_category]}
+              </span>
+            )}
+          </div>
+          
+          {/* Neutral confidence block */}
+          <div className="text-right">
+            <span className="text-xs font-sans text-ink-soft uppercase tracking-wider">Confidence</span>
+            <p className="text-sm font-sans text-ink font-semibold mt-0.5 capitalize">{finding.confidence}</p>
+          </div>
+        </div>
+
+        {/* 1. Urgent finding alert (stamp red only if <= 14d and action required) */}
+        {urgent && (
+          <div className="bg-stamp/5 border border-stamp/30 p-3 flex items-start gap-2.5 rounded-sm">
+            <AlertTriangle className="h-4 w-4 text-stamp mt-0.5 shrink-0" strokeWidth={2.5} />
+            <p className="text-xs font-sans text-stamp font-semibold leading-relaxed">
+              Urgent action required · {e.days_remaining} days remaining to give notice.
+            </p>
+          </div>
+        )}
+
+        {/* 2. Timeline fact row (Term ends / Renews) */}
+        <div className="pt-2 border-t border-rule space-y-3">
+          <p className="cc-days-remaining text-sm font-semibold text-ink leading-snug font-sans">
+            {renderAnchorFact()}
+          </p>
+
+          {/* Primary Action Button directly below the facts */}
+          {!readOnly && (
+            <div className="pt-1">
+              {finding.state === "unconfirmed" ? (
+                <Button size="sm" disabled={busy} onClick={() => act("confirm")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                  Confirm deadline
+                </Button>
+              ) : finding.action_required ? (
+                <Button size="sm" onClick={() => navigate("/app/action-center")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                  Prepare notice
+                </Button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft font-semibold font-sans">
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft" /> Confirmed
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Concise visible explanation with disclosure */}
+        {!needsReview && finding.plain_english && (
+          <div className="bg-card border border-rule p-4 rounded-sm space-y-3">
+            <span className="cc-eyebrow font-sans">Explanation</span>
+            <p className="cc-plain-english text-xs text-ink leading-relaxed mt-1 font-sans">{finding.plain_english}</p>
+            
+            {(finding.why_it_matters || finding.suggested_action) && (
+              <div className="pt-1">
+                <button 
+                  onClick={() => setExplanationOpen(!explanationOpen)} 
+                  className="cc-section-ref text-xs text-seal hover:underline flex items-center gap-1 bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer"
+                >
+                  {explanationOpen ? "Hide explanation details ⌃" : "Show explanation details ⌄"}
+                </button>
+                
+                {explanationOpen && (
+                  <div className="mt-3 space-y-3 pt-3 border-t border-rule/50">
+                    {finding.why_it_matters && (
+                      <div>
+                        <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider font-sans">Why it matters</span>
+                        <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.why_it_matters}</p>
+                      </div>
+                    )}
+                    {finding.suggested_action && (
+                      <div>
+                        <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider font-sans">Suggested action</span>
+                        <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.suggested_action}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. Collapsible Verbatim contract sources drawer toggle button */}
+        <div className="pt-2 border-t border-rule">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="cc-section-ref flex items-center gap-1 text-ink hover:text-seal transition-colors font-semibold font-sans text-xs bg-transparent border-0 p-0 cursor-pointer"
+          >
+            {open ? "Hide contract language ⌃" : "Show contract language ⌄"}
+          </button>
+        </div>
+
+        {/* 5. Reminders Block (placed correctly after evidence toggle on mobile) */}
+        {!readOnly && !needsReview && heroIso && (
+          <div className="pt-2 border-t border-rule">
+            <RemindersBlock findingId={finding.id} deadline={heroIso} />
+          </div>
+        )}
+      </div>
+
       {/* The signature clause drawer — evidence register on --document ground */}
       <AnimatePresence initial={false}>
         {open && (
@@ -612,15 +743,18 @@ function RemindersBlock({ findingId, deadline }) {
       </div>
       {reminders.length > 0 && (
         <ul className="mt-3 space-y-2" data-testid="reminders-list">
-          {reminders.map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded-md border border-rule bg-card px-4 py-2">
-              <span className="cc-days-remaining text-ink" data-testid={`reminder-${r.id}`}>
-                {r.days_before} days before · fires {longDate(r.fire_date)}
-              </span>
-              <button data-testid={`reminder-delete-${r.id}`} onClick={() => remove(r.id)}
-                className="text-ink-soft hover:text-stamp"><Trash2 className="h-4 w-4" /></button>
-            </li>
-          ))}
+          {reminders.map((r) => {
+            const isPast = new Date(r.fire_date) < new Date();
+            return (
+              <li key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-rule bg-card px-4 py-2">
+                <span className="cc-days-remaining text-ink font-sans text-xs break-words min-w-0" data-testid={`reminder-${r.id}`}>
+                  {r.days_before} days before · {isPast ? `reminder date passed ${longDate(r.fire_date)}` : `fires ${longDate(r.fire_date)}`}
+                </span>
+                <button data-testid={`reminder-delete-${r.id}`} onClick={() => remove(r.id)}
+                  className="text-ink-soft hover:text-stamp shrink-0 self-end sm:self-auto"><Trash2 className="h-4 w-4" /></button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
