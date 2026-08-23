@@ -300,7 +300,7 @@ function ChecklistPanel({ item }) {
           </div>
         )}
 
-        <p className="cc-finding-title">{item.contract_name} — {TYPE_LABEL[item.type] || "Action required"}</p>
+        <p className="cc-finding-title break-words whitespace-pre-wrap">{item.contract_name} — {TYPE_LABEL[item.type] || "Action required"}</p>
         <div className="cc-seal-rule mt-3 mb-5" />
         <div className="mt-2 space-y-6">
           <div>
@@ -365,7 +365,7 @@ function ChecklistPanel({ item }) {
         </div>
       )}
 
-      <p className="cc-finding-title">{item.contract_name} — Notice checklist</p>
+      <p className="cc-finding-title break-words whitespace-pre-wrap">{item.contract_name} — Notice checklist</p>
       <div className="cc-seal-rule mt-3 mb-5" />
         {!checklist ? <p className="cc-days-remaining mt-2">Loading…</p> : (
           <div className="mt-2 space-y-6">

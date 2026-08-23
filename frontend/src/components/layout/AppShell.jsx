@@ -25,12 +25,12 @@ export const AppShell = ({ demo = false }) => {
     <div className="min-h-screen flex flex-col bg-paper">
       <header className="border-b border-rule bg-paper/90 backdrop-blur-sm sticky top-0 z-40">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-col md:flex-row md:items-center justify-between py-3 md:py-0 md:h-16 gap-3 md:gap-4">
             <div className="flex items-center gap-3">
               <NavLink
                 to={base}
                 data-testid={NAV.brand}
-                className="flex items-center gap-2 text-ink"
+                className="flex items-center gap-2 text-ink shrink-0"
               >
                 <Clock8 className="h-5 w-5 text-seal" strokeWidth={2.25} />
                 <span className="font-archivo-expanded font-bold tracking-tight text-[18px] uppercase">
@@ -38,13 +38,13 @@ export const AppShell = ({ demo = false }) => {
                 </span>
               </NavLink>
               {demo && (
-                <span className="cc-eyebrow ml-2 hidden sm:inline">
+                <span className="cc-eyebrow ml-2 hidden sm:inline shrink-0">
                   Synthetic demo workspace
                 </span>
               )}
             </div>
 
-            <nav className="flex items-center gap-7">
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 justify-start md:justify-end w-full md:w-auto">
               <NavLink end to={base} className={navItem} data-testid={NAV.dashboard}>
                 Dashboard
               </NavLink>
@@ -67,9 +67,9 @@ export const AppShell = ({ demo = false }) => {
                   size="sm"
                   data-testid={NAV.addContract}
                   onClick={() => navigate("/app/upload")}
-                  className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5"
+                  className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-3 gap-1 text-xs md:h-9 md:px-4 md:gap-1.5 md:text-sm shrink-0"
                 >
-                  <Plus className="h-4 w-4" strokeWidth={2.5} />
+                  <Plus className="h-3 w-3 md:h-4 md:w-4" strokeWidth={2.5} />
                   Add contract
                 </Button>
               )}
@@ -80,7 +80,7 @@ export const AppShell = ({ demo = false }) => {
                     await auth.logout();
                     navigate("/login");
                   }}
-                  className="cc-eyebrow text-ink-soft hover:text-ink transition-colors flex items-center gap-1.5"
+                  className="cc-eyebrow text-ink-soft hover:text-ink transition-colors flex items-center gap-1.5 shrink-0"
                   title="Sign out"
                 >
                   <LogOut className="h-4 w-4" strokeWidth={2} />

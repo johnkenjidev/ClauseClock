@@ -102,7 +102,77 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the newly redesigned /demo overview and /demo/contracts/:id contract detail pages"
+user_problem_statement: "Fix mobile navigation overflow, selected action center long titles wrap, and preserve queue behavior on Action Center."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+metadata:
+  created_by: "main_agent"
+  version: "2.1"
+  test_sequence: 3
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All mobile layout fixes verified and working"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile nav layout and long contract title wrapping have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "MOBILE LAYOUT TESTING COMPLETE - All three tasks verified and working correctly. Tested on multiple mobile viewports (320px, 375px, 430px). Navigation wraps cleanly, contract titles wrap without overflow, queue/detail master-detail behavior works perfectly with back button. No critical issues found. Ready for user acceptance."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Test the newly redesigned /demo overview and /demo/contracts/:id contract detail pages"
+
 
 frontend:
   - task: "Demo overview page (/demo) - Banner display"
