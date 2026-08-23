@@ -454,19 +454,32 @@ export default function ActionCenter() {
     <div data-testid={ACTION_CENTER.root}>
       <Eyebrow>Action Center</Eyebrow>
       <div className="cc-seal-rule mt-4 mb-6" />
-      <p className="cc-days-remaining mb-8 max-w-2xl">Confirmed findings with a deadline that need action — renewals to give notice on, plus claims, disputes and deadlines from your contracts. ClauseClock does not send anything — you review and act yourself.</p>
+      
+      {/* Desktop intro paragraph */}
+      <p className="hidden lg:block cc-days-remaining mb-8 max-w-2xl">
+        Confirmed findings with a deadline that need action — renewals to give notice on, plus claims, disputes and deadlines from your contracts. ClauseClock does not send anything — you review and act yourself.
+      </p>
+
+      {/* Mobile intro paragraph */}
+      {data && data.count > 0 && (
+        <p className="lg:hidden cc-days-remaining mb-6 text-xs text-ink-soft">
+          {data.count} {data.count === 1 ? "finding" : "findings"}
+        </p>
+      )}
 
       {data === null && <p className="cc-days-remaining">Loading…</p>}
       {data && data.count === 0 && (
-        <div className="rounded-lg border border-rule bg-card px-6 py-10 text-center">
-          <p className="cc-plain-english text-ink-soft">No confirmed actions yet. Confirm an actionable finding with a deadline to see it here.</p>
+        <div className="bg-document text-document-ink border border-document-rule p-6 text-center rounded-sm max-w-md mx-auto" data-testid="empty-warm-paper">
+          <p className="font-mono text-sm font-semibold">
+            Nothing requires action. Your confirmed actionable queue is clear.
+          </p>
         </div>
       )}
 
       {data && data.count > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-0 border-t border-rule">
           {/* Master — prioritised queue (~38%) */}
-          <div className="lg:border-r border-rule py-6 lg:pr-7">
+          <div className={`py-6 lg:pr-7 lg:border-r border-rule ${active ? "hidden lg:block" : "block"}`}>
             {BUCKETS.map(([key, label]) => {
               const items = data.buckets[key] || [];
               if (!items.length) return null;
@@ -501,7 +514,16 @@ export default function ActionCenter() {
           </div>
 
           {/* Detail — selected finding workflow (~62%) */}
-          <div className="lg:pl-8 min-w-0">
+          <div className={`min-w-0 lg:pl-8 py-6 ${active ? "block" : "hidden lg:block"}`}>
+            {active && (
+              <button 
+                onClick={() => setActive(null)}
+                className="lg:hidden flex items-center gap-1.5 cc-eyebrow text-seal hover:text-seal/85 mb-4 font-semibold"
+                data-testid="back-to-queue-btn"
+              >
+                ← Back to actions
+              </button>
+            )}
             <ChecklistPanel item={active} />
           </div>
         </div>
