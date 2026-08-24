@@ -3,14 +3,14 @@
 // contract sources, and can generate a grounded non-renewal draft. ClauseClock
 // does NOT send anything; the user must verify and send it themselves.
 import { useEffect, useState, useRef } from "react";
-import { FileText, AlertTriangle } from "lucide-react";
+import { FileText, AlertTriangle, ChevronDown, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
-import { Eyebrow } from "@/components/cc/Primitives";
+import { Eyebrow, BTN_TERTIARY } from "@/components/cc/Primitives";
 import { ACTION_CENTER } from "@/constants/testIds";
 
 const BUCKETS = [
@@ -93,7 +93,7 @@ function LogActionForm({ findingId, contractMethod }) {
       </div>
       {err && <p className="cc-days-remaining text-stamp mt-2">{err}</p>}
       <Button onClick={save} disabled={busy || !form.sent_date || !form.delivery_method} data-testid="action-save"
-        className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 mt-3">
+        className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-5 mt-3 font-semibold">
         {busy ? "Saving…" : "Log action"}
       </Button>
 
@@ -140,7 +140,9 @@ function EvidenceBlock({ action, onChanged }) {
         <span className="cc-eyebrow">Evidence of action</span>
         <button data-testid={`evidence-upload-btn-${action.id}`} disabled={busy}
           onClick={() => ref.current?.click()}
-          className="cc-section-ref text-seal hover:underline">{busy ? "Uploading…" : "Attach evidence"}</button>
+          className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-8 px-3 text-xs bg-transparent font-sans font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
+          <Paperclip className="h-3.5 w-3.5" /> {busy ? "Uploading…" : "Attach evidence"}
+        </button>
         <input ref={ref} type="file" className="hidden"
           data-testid={`evidence-input-${action.id}`}
           onChange={(e) => upload(e.target.files?.[0])} />
@@ -152,7 +154,7 @@ function EvidenceBlock({ action, onChanged }) {
           {files.map((f, i) => (
             <li key={i} className="flex items-center justify-between rounded-md border border-rule bg-card px-3 py-2">
               <a href={`${API_BASE}/actions/${action.id}/evidence/${i}`} target="_blank" rel="noreferrer"
-                className="cc-section-ref text-ink hover:text-seal">{f.filename}</a>
+                className="cc-section-ref text-ink hover:text-seal hover:underline">{f.filename}</a>
               <span className="cc-days-remaining">{(f.size_bytes / 1024).toFixed(0)} KB · SHA-256 {String(f.sha256).slice(0, 10)}… · {String(f.uploaded_at).slice(0, 10)}</span>
             </li>
           ))}
@@ -196,7 +198,7 @@ function OutcomeForm({ findingId }) {
         </label>
       </div>
       <Button onClick={save} disabled={busy} data-testid="outcome-save"
-        className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 mt-3">{busy ? "Saving…" : "Record outcome"}</Button>
+        className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-5 mt-3 font-semibold">{busy ? "Saving…" : "Record outcome"}</Button>
       {outcomes.length > 0 && (
         <ul className="mt-3 space-y-2" data-testid="outcome-list">
           {outcomes.map((o) => (
@@ -323,10 +325,11 @@ function ChecklistPanel({ item }) {
           <div className="pt-2 border-t border-rule">
             <button 
               onClick={() => setEvidenceOpen(!evidenceOpen)}
-              className="cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors font-semibold"
+              className={`${BTN_TERTIARY} transition-colors`}
               data-testid="evidence-drawer-toggle"
             >
-              {evidenceOpen ? "Hide contract evidence ⌃" : "Show contract evidence ⌄"}
+              <span>{evidenceOpen ? "Hide contract evidence" : "Show contract evidence"}</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${evidenceOpen ? "rotate-180" : ""}`} />
             </button>
             
             {evidenceOpen && (
@@ -395,10 +398,11 @@ function ChecklistPanel({ item }) {
             <div className="pt-2 border-t border-rule">
               <button 
                 onClick={() => setEvidenceOpen(!evidenceOpen)}
-                className="cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors font-semibold"
+                className={`${BTN_TERTIARY} transition-colors`}
                 data-testid="evidence-drawer-toggle"
               >
-                {evidenceOpen ? "Hide contract evidence ⌃" : "Show contract evidence ⌄"}
+                <span>{evidenceOpen ? "Hide contract evidence" : "Show contract evidence"}</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${evidenceOpen ? "rotate-180" : ""}`} />
               </button>
               
               {evidenceOpen && (
@@ -421,7 +425,7 @@ function ChecklistPanel({ item }) {
 
             <div className="pt-2 border-t border-rule">
               <Button onClick={generate} disabled={drafting} data-testid="generate-draft-btn"
-                className="bg-ink text-paper hover:bg-ink/90 rounded-full h-10 px-5">
+                className="bg-seal text-paper hover:bg-seal/90 rounded-full h-10 px-5 font-semibold">
                 {drafting ? "Drafting…" : "Generate non-renewal draft"}
               </Button>
 

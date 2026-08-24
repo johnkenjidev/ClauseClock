@@ -201,9 +201,9 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
         {error && <p className="cc-days-remaining text-stamp mt-2" data-testid="correct-error">{error}</p>}
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full border-rule">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full border-rule text-ink hover:text-ink hover:bg-card">Cancel</Button>
           <Button onClick={save} disabled={busy} data-testid="correct-save"
-            className="bg-ink text-paper hover:bg-ink/90 rounded-full">
+            className="bg-seal text-paper hover:bg-seal/90 rounded-full font-semibold">
             {busy ? "Saving…" : "Save corrections"}
           </Button>
         </DialogFooter>

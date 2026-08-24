@@ -3,7 +3,7 @@
 // with location markers (inspectable, for extraction-quality testing).
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch, Loader2, Plus, Paperclip } from "lucide-react";
+import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch, Loader2, Plus, Paperclip, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -153,7 +153,7 @@ export default function ContractDetail() {
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" data-testid="contract-delete"
-                className="border-rule text-stamp hover:bg-card rounded-full h-10 px-4 gap-1.5">
+                className="border-stamp/50 text-stamp hover:text-stamp hover:bg-stamp/10 rounded-full h-10 px-4 gap-1.5">
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
             </AlertDialogTrigger>
@@ -207,14 +207,14 @@ export default function ContractDetail() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setDocUpload((u) => ({ ...u, open: !u.open, file: null, err: "" }))}
-                className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1"
+                className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-9 px-4 text-xs bg-transparent font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1.5 transition-colors"
                 data-testid="add-document-toggle"
               >
-                <Paperclip className="h-3 w-3" /> Add Document
+                <Paperclip className="h-3.5 w-3.5" /> Add Document
               </button>
               {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
                 <Button onClick={analyze} disabled={analyzing} data-testid="analyze-button"
-                  className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
+                  className="bg-transparent border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-9 px-4 gap-1.5 font-semibold">
                   <ScanSearch className="h-4 w-4" strokeWidth={2} />
                   {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find deadlines & increases"}
                 </Button>
@@ -270,14 +270,14 @@ export default function ContractDetail() {
                         setDocUpload((u) => ({ ...u, uploading: false, err: e.response?.data?.detail || "Upload failed" }));
                       }
                     }}
-                    className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 font-semibold text-xs"
+                    className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-5 font-semibold text-xs"
                     data-testid="upload-submit-btn"
                   >
                     {docUpload.uploading ? "Uploading…" : "Upload Document"}
                   </Button>
                   <button 
                     onClick={() => setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" })}
-                    className="text-xs text-ink-soft hover:text-ink font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
+                    className="text-xs text-ink-soft hover:text-ink hover:underline font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -436,10 +436,10 @@ export default function ContractDetail() {
             {contract.counterparty || "No counterparty"} · {documents.length} doc{documents.length === 1 ? "" : "s"}
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <button 
               onClick={() => setDocUpload((u) => ({ ...u, open: !u.open, file: null, err: "" }))}
-              className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1"
+              className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-8 px-3 text-xs bg-transparent font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1.5 transition-colors"
               data-testid="add-document-toggle"
             >
               <Paperclip className="h-3 w-3" /> Add Document
@@ -448,7 +448,7 @@ export default function ContractDetail() {
               <button 
                 onClick={analyze} 
                 disabled={analyzing} 
-                className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
+                className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-8 px-3 text-xs bg-transparent font-sans tracking-wide uppercase font-semibold cursor-pointer transition-colors disabled:opacity-50"
               >
                 {analyzing ? "Reading clauses…" : "Re-analyze"}
               </button>
@@ -460,7 +460,7 @@ export default function ContractDetail() {
                   del();
                 }
               }}
-              className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
+              className="border border-stamp/50 text-stamp hover:bg-stamp/10 rounded-full h-8 px-3 text-xs bg-transparent font-sans tracking-wide uppercase font-semibold cursor-pointer transition-colors"
             >
               Delete Contract
             </button>
@@ -514,14 +514,14 @@ export default function ContractDetail() {
                         setDocUpload((u) => ({ ...u, uploading: false, err: e.response?.data?.detail || "Upload failed" }));
                       }
                     }}
-                    className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold text-xs"
+                    className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold text-xs"
                     data-testid="upload-submit-btn"
                   >
                     {docUpload.uploading ? "Uploading…" : "Upload"}
                   </Button>
                   <button 
                     onClick={() => setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" })}
-                    className="text-xs text-ink-soft hover:text-ink font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
+                    className="text-xs text-ink-soft hover:text-ink hover:underline font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -619,9 +619,10 @@ export default function ContractDetail() {
                       <span className="text-[10px] text-ink-soft font-semibold uppercase tracking-wider font-sans">Text Content</span>
                       <button 
                         onClick={() => toggleDoc(doc.id)}
-                        className="text-ink-soft hover:text-ink hover:underline font-sans font-semibold text-xs bg-transparent border-0 p-0 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-ink-soft hover:text-ink font-sans font-semibold text-xs bg-transparent border-0 p-0 cursor-pointer transition-colors"
                       >
-                        {expandedDocs[doc.id] ? "Hide extracted text ⌃" : "Show extracted text ⌄"}
+                        <span>{expandedDocs[doc.id] ? "Hide extracted text" : "Show extracted text"}</span>
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expandedDocs[doc.id] ? "rotate-180" : ""}`} />
                       </button>
                     </div>
 

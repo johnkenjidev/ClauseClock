@@ -4,6 +4,7 @@
 // calculations, no LLM calls — pure client-side field comparison.
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { BTN_TERTIARY } from "@/components/cc/Primitives";
 
 const GENERIC_TYPES = [
   "service_credit", "invoice_dispute", "notice_requirement",
@@ -172,9 +173,9 @@ export function AmendmentDiffDisclosure({ oldFinding, newFinding, type, mobile =
       <button
         onClick={() => setOpen((o) => !o)}
         data-testid={tid("amendment-diff-toggle")}
-        className={`cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors bg-transparent border-0 p-0 cursor-pointer font-sans font-semibold ${mobile ? "text-xs" : ""}`}
+        className={`${BTN_TERTIARY} transition-colors ${mobile ? "text-xs" : ""}`}
       >
-        Review amendment changes
+        <span>Review amendment changes</span>
         <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -195,9 +196,10 @@ export function AmendmentDiffDisclosure({ oldFinding, newFinding, type, mobile =
               <button
                 onClick={() => setEvidenceOpen((o) => !o)}
                 data-testid={tid("amendment-evidence-toggle")}
-                className={`cc-section-ref text-ink hover:text-seal transition-colors bg-transparent border-0 p-0 cursor-pointer font-sans font-semibold ${mobile ? "text-xs" : ""}`}
+                className={`${BTN_TERTIARY} transition-colors ${mobile ? "text-xs" : ""}`}
               >
-                {evidenceOpen ? "Hide the evidence" : "Show the evidence"}
+                <span>{evidenceOpen ? "Hide the evidence" : "Show the evidence"}</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${evidenceOpen ? "rotate-180" : ""}`} />
               </button>
               {evidenceOpen && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2" data-testid={tid("amendment-evidence-panel")}>

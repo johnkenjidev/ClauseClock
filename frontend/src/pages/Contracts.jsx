@@ -29,7 +29,7 @@ export default function Contracts() {
           <div className="cc-seal-rule mt-4" />
         </div>
         <Button onClick={() => navigate("/app/upload")} data-testid="contracts-add"
-          className="bg-ink text-paper hover:bg-ink/90 rounded-full h-10 px-5">
+          className="bg-seal text-paper hover:bg-seal/90 rounded-full h-10 px-5">
           Add a contract
         </Button>
       </div>
@@ -52,7 +52,7 @@ export default function Contracts() {
               No contracts yet. Add one and ClauseClock reads the paper so you don&rsquo;t have to.
             </p>
             <Button onClick={() => navigate("/app/upload")} data-testid={CONTRACTS.emptyAddContract}
-              className="mt-6 bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6">
+              className="mt-6 bg-seal text-paper hover:bg-seal/90 rounded-full h-11 px-6">
               Add a contract
             </Button>
           </div>

@@ -134,7 +134,7 @@ export default function Dashboard() {
           <Button
             data-testid={DASHBOARD.emptyAddContract}
             onClick={() => navigate("/app/upload")}
-            className="bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6"
+            className="bg-seal text-paper hover:bg-seal/90 rounded-full h-11 px-6"
           >
             Add a contract
           </Button>
@@ -182,7 +182,7 @@ export default function Dashboard() {
               variant="outline"
               data-testid={DASHBOARD.savingsReportBtn}
               onClick={downloadReport}
-              className="rounded-full h-10 px-4 gap-1.5 border-rule text-ink hover:bg-paper shrink-0"
+              className="rounded-full h-10 px-4 gap-1.5 border-rule text-ink hover:text-ink hover:bg-paper shrink-0"
             >
               <Download className="h-4 w-4" /> Savings report
             </Button>
@@ -273,14 +273,14 @@ export default function Dashboard() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Button
             onClick={() => navigate("/app/upload")}
-            className="bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6"
+            className="bg-seal text-paper hover:bg-seal/90 rounded-full h-11 px-6"
           >
             Add a contract
           </Button>
           <Button
             variant="outline"
             onClick={() => navigate("/app/action-center")}
-            className="rounded-full h-11 px-6 border-rule text-ink hover:bg-card"
+            className="rounded-full h-11 px-6 border-rule text-ink hover:text-ink hover:bg-card"
           >
             Go to Action Center
           </Button>
@@ -365,7 +365,7 @@ export default function Dashboard() {
             <button 
               data-testid={DASHBOARD.savingsReportBtn}
               onClick={downloadReport} 
-              className="cc-section-ref text-seal hover:underline flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer text-xs"
+              className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-9 px-4 inline-flex items-center gap-1.5 bg-transparent cursor-pointer text-xs font-sans font-semibold transition-colors"
             >
               <Download className="h-3.5 w-3.5" /> Download Savings Report
             </button>
@@ -403,14 +403,14 @@ export default function Dashboard() {
         <div className="flex flex-col gap-3 pt-4">
           <Button
             onClick={() => navigate("/app/upload")}
-            className="w-full bg-ink text-paper hover:bg-ink/90 rounded-full h-11 px-6 font-semibold"
+            className="w-full bg-seal text-paper hover:bg-seal/90 rounded-full h-11 px-6 font-semibold"
           >
             Add a contract
           </Button>
           <Button
             variant="outline"
             onClick={() => navigate("/app/action-center")}
-            className="w-full rounded-full h-11 px-6 border-rule text-ink hover:bg-card font-semibold"
+            className="w-full rounded-full h-11 px-6 border-rule text-ink hover:text-ink hover:bg-card font-semibold"
           >
             Go to Action Center
           </Button>
