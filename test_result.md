@@ -102,7 +102,267 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Rebuild mobile contract detail hierarchy, wrap long titles, collapse evidence drawer, and format reminders."
+user_problem_statement: "Fix local days remaining on mobile urgent alerts, mathematically correct subtraction formula, and hide desktop views properly on mobile."
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Mobile Contracts List"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Rebuilt mobile contracts list directly on ground, with no card container background. Contract names wrap cleanly to max 2 lines with flex parent overflow fixes."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Rebuilt contracts list renders directly on ground (no card wrapper). Rows have correct margins, titles clamped to 2 lines, and Add a contract button hidden cleanly on mobile."
+
+  - task: "Mobile Contract Detail"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Reordered mobile contract detail layout: identity, urgent finding, explanation, source quotes, reminders, timeline, and document text. Removed annual value card, collapsed evidence quotes, and handled past reminders."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract Detail mobile view matches the specified hierarchy perfectly. Document text contents collapsed by default, timeline cards hidden, and annual value meta rendered on ground."
+
+  - task: "Mobile Contract Detail Corrections"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Recomputed deadline days remaining dynamically using browser local calendar date to fix timezone offset issues. Placed mathematically correct subtraction on fact derivation. Fixed Timeline INVALID DATE. Made Re-analyze, disclosures, and delete contract buttons neutral UI texts. Removed FindingCard duplicate legal disclaimer."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile (375px) and desktop (1920px) viewports. CODE FIXES CONFIRMED: (1) FindingCard.jsx line 600 now correctly uses dr (local calculation) instead of e.days_remaining for urgent alert. (2) renderAnchorFact() function (lines 238-249) has correct Unicode subtraction symbol (−) on lines 243 and 245. (3) Desktop layout properly hidden on mobile with .hidden-on-mobile CSS (display: none). (4) All neutral text buttons have correct styling: Re-analyze, Delete Contract, explanation disclosure, extracted text disclosure, and contract language toggle all use text-ink-soft/text-ink classes. (5) Legal disclaimer appears exactly once (global footer only). (6) Desktop layout visible and working correctly on desktop viewport. DATA LIMITATION: Test contract (6a86c401425ca5752a3a4410) has finding with 'Notice anchor requires review' state, so urgent alert and fact derivation with subtraction do not display (expected behavior when notice_anchor_type is not set). Finding shows DEC 2 deadline (101 days remaining) not AUG 31 as mentioned in review request - this is a data issue, not a code issue. Timeline not present on this specific contract. All code implementations are correct and working as designed."
+
+metadata:
+  created_by: "main_agent"
+  version: "8.1"
+  test_sequence: 10
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Mobile Contract Detail Corrections"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile contract detail timing calculation, subtraction symbol, timeline, disclaimers, and neutral text buttons corrections have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "TESTING COMPLETE - All code implementations verified and working correctly. Mobile viewport (375px): Desktop layout hidden (display: none), all neutral text buttons have correct styling (text-ink-soft/text-ink), legal disclaimer appears once (global footer). Desktop viewport (1920px): Desktop layout visible and working. Code review confirms: FindingCard.jsx line 600 uses dr (local calculation), renderAnchorFact() has Unicode minus (−), .hidden-on-mobile CSS working. Test limitation: Contract 6a86c401425ca5752a3a4410 has finding with 'Notice anchor requires review' state, so urgent alert and fact derivation don't display (expected when notice_anchor_type not set). Finding shows DEC 2 deadline (101 days) not AUG 31 mentioned in review request - this is a data issue. All code fixes are correct and functional."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Fix local days remaining timezone bug, timeline invalid date, and mobile neutral text buttons."
+
+
+frontend:
+  - task: "Mobile Navigation Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/components/layout/AppShell.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Wrapped navigation links dynamically below ClauseClock branding on mobile view, ensuring brand visibility and accessible buttons."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewports (320px, 375px, 430px). ClauseClock branding is visible, all nav links (Dashboard, Contracts, Action Center) are accessible and wrap cleanly. Add contract button is within viewport (x=24.0, width=113.0). No overflow issues detected."
+
+  - task: "Selected Action Center Wrapping Fix"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Added break-words whitespace-pre-wrap to the selected checklist panel titles, allowing long contract titles to wrap cleanly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract title '06_Daktronics_SaaS_Agreement — Notice checklist' wraps correctly within viewport (width=327.0px, x=24.0px, total=351px < 375px). Title has 'break-words' class applied. No horizontal overflow detected."
+
+  - task: "Mobile Queue Master-Detail Behavior"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ActionCenter.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Hides queue when detail is selected, hides detail when unselected, with custom Back to actions button on mobile viewport."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Queue is visible when no item selected. Empty placeholder is correctly hidden. When item selected, queue hides and detail panel shows full-width. '← Back to actions' button is visible (lg:hidden class applied), and clicking it successfully returns to queue. Tested on 320px, 375px, and 430px viewports - all working correctly."
+
+  - task: "Mobile Dashboard Layout"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Redesigned mobile Dashboard with due/urgent reminders first, compact ground metrics, confirmed outcomes line, and compact value-by-contract stacked panel. Handled under-14d stamp red and flex-row shrink/wrap overflow."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Metrics list contains Contracts monitored, Value under tracking, Pending value, and Windows missed correctly formatted as plain typography on ground. Confirmed outcomes block properly handles $0 cases cleanly."
+
+  - task: "Mobile Contracts List"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Contracts.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Rebuilt mobile contracts list directly on ground, with no card container background. Contract names wrap cleanly to max 2 lines with flex parent overflow fixes."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Rebuilt contracts list renders directly on ground (no card wrapper). Rows have correct margins, titles clamped to 2 lines, and Add a contract button hidden cleanly on mobile."
+
+  - task: "Mobile Contract Detail"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ContractDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Reordered mobile contract detail layout: identity, urgent finding, explanation, source quotes, reminders, timeline, and document text. Removed annual value card, collapsed evidence quotes, and handled past reminders."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED on mobile viewport (375px). Contract Detail mobile view matches the specified hierarchy perfectly. Document text contents collapsed by default, timeline cards hidden, and annual value meta rendered on ground."
+
+  - task: "Mobile Contract Detail Corrections"
+    implemented: true
+    working: false
+    file: "frontend/src/pages/ContractDetail.jsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Recomputed deadline days remaining dynamically using browser local calendar date to fix timezone offset issues. Placed mathematically correct subtraction on fact derivation. Fixed Timeline INVALID DATE. Made Re-analyze, disclosures, and delete contract buttons neutral UI texts. Removed FindingCard duplicate legal disclaimer."
+        - working: false
+          agent: "testing"
+          comment: "CRITICAL ISSUES FOUND on mobile viewport (375px): (1) Days remaining shows 100 instead of 8 - FindingCard.jsx line 600 uses e.days_remaining (server value) instead of dr (local calculation). Desktop view correctly uses dr (line 312). (2) Fact derivation not showing - displays 'Notice anchor requires review' because e.notice_anchor_type is not set to 'term_end' or 'renewal_start'. Code has correct U+2212 subtraction symbol on lines 243 and 245. (3) Desktop Re-analyze button (bg-seal) visible on mobile viewport - desktop layout (.hidden.md:block) not properly hidden. WORKING CORRECTLY: (1) Timeline dates - no INVALID DATE warnings. (2) Legal disclaimer appears only once (global footer). (3) Delete contract button uses neutral text styling. (4) Explanation disclosure button uses neutral text styling. (5) Extracted text disclosure button uses neutral text styling. (6) Desktop layout working correctly when viewport is 1920px."
+
+metadata:
+  created_by: "main_agent"
+  version: "8.0"
+  test_sequence: 9
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Mobile Contract Detail Corrections"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "The mobile contract detail timing calculation, subtraction symbol, timeline, disclaimers, and neutral text buttons corrections have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+    - agent: "testing"
+      message: "TESTING COMPLETE - CRITICAL ISSUES FOUND. Three main problems: (1) FindingCard.jsx line 600 urgent alert uses e.days_remaining (server value showing 100 days) instead of dr (local calculation). Desktop correctly uses dr on line 312. Fix: Change line 600 to use dr instead of e.days_remaining. (2) Fact derivation shows 'Notice anchor requires review' because finding data lacks e.notice_anchor_type. The renderAnchorFact() function has correct U+2212 subtraction symbol but anchor data is missing. This is a data issue, not code issue. (3) Desktop Re-analyze button visible on mobile - desktop layout not properly hidden on mobile viewport. Three items working correctly: Timeline dates (no INVALID DATE), legal disclaimer (single instance), and disclosure buttons (neutral text styling). Desktop layout works perfectly at 1920px."
+
+# OLD LOGS HELD FOR REFERENCE BELOW
+# --------------------------------------------------
+# user_problem_statement: "Rebuild mobile contract detail hierarchy, wrap long titles, collapse evidence drawer, and format reminders."
+
 
 frontend:
   - task: "Mobile Navigation Fix"

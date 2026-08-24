@@ -109,8 +109,15 @@ export default function ContractDetail() {
 
   return (
     <div data-testid={CONTRACT_DETAIL.root}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .hidden-on-mobile {
+            display: none !important;
+          }
+        }
+      ` }} />
       {/* Desktop-only view */}
-      <div className="hidden md:block max-w-3xl">
+      <div className="hidden md:block max-w-3xl hidden-on-mobile">
         <button onClick={() => navigate("/app/contracts")}
           className="cc-eyebrow text-ink-soft hover:text-ink flex items-center gap-1.5 mb-6">
           <ArrowLeft className="h-4 w-4" /> Contracts
@@ -337,7 +344,7 @@ export default function ContractDetail() {
               <button 
                 onClick={analyze} 
                 disabled={analyzing} 
-                className="text-seal hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
+                className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
               >
                 {analyzing ? "Reading clauses…" : "Re-analyze"}
               </button>
@@ -349,7 +356,7 @@ export default function ContractDetail() {
                   del();
                 }
               }}
-              className="text-stamp hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
+              className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer"
             >
               Delete Contract
             </button>
@@ -396,7 +403,7 @@ export default function ContractDetail() {
               {timeline.map((ev, i) => (
                 <li key={i} className="ml-5 relative" data-testid={`timeline-${ev.kind}-${i}`}>
                   <span className="absolute -left-[25px] mt-1.5 h-2 w-2 rounded-full bg-ink-soft border border-rule bg-paper" />
-                  <p className="text-[10px] text-ink-soft font-semibold uppercase tracking-wider">{longDate(ev.date)} · {KIND_LABEL[ev.kind]}</p>
+                  <p className="text-[10px] text-ink-soft font-semibold uppercase tracking-wider">{tlDate(ev.date)} · {KIND_LABEL[ev.kind]}</p>
                   <p className="text-xs text-ink font-medium mt-0.5 leading-relaxed">{ev.title}</p>
                   {ev.detail && <p className="text-[11px] text-ink-soft mt-0.5">{ev.detail}</p>}
                 </li>
@@ -437,7 +444,7 @@ export default function ContractDetail() {
                       <span className="text-[10px] text-ink-soft font-semibold uppercase tracking-wider font-sans">Text Content</span>
                       <button 
                         onClick={() => toggleDoc(doc.id)}
-                        className="text-seal hover:underline font-sans font-semibold text-xs bg-transparent border-0 p-0 cursor-pointer"
+                        className="text-ink-soft hover:text-ink hover:underline font-sans font-semibold text-xs bg-transparent border-0 p-0 cursor-pointer"
                       >
                         {expandedDocs[doc.id] ? "Hide extracted text ⌃" : "Show extracted text ⌄"}
                       </button>

@@ -178,6 +178,17 @@ const RANK_LABEL = {
   opportunity: "Opportunity", informational: "Informational",
 };
 
+const localDaysRemaining = (deadlineIso) => {
+  if (!deadlineIso) return null;
+  const [y, m, d] = deadlineIso.split("-").map(Number);
+  const deadlineDate = new Date(y, m - 1, d);
+  deadlineDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffTime = deadlineDate - today;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 export function FindingCard({ finding, onChanged, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
@@ -189,8 +200,15 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const isComposite = finding.type === "renewal_with_escalation";
   const isTermination = finding.type === "termination_right";
   const isGeneric = GENERIC_TYPES.includes(finding.type);
-  const t = tone(finding);
   const needsReview = finding.validation_status === "needs_review";
+  const dr = localDaysRemaining(e.effective_action_deadline);
+  const t = needsReview
+    ? "pending"
+    : (dr != null && dr <= 14 && finding.action_required)
+      ? "stamp"
+      : (dr != null && dr <= 60)
+        ? "pending"
+        : "neutral";
   const badge = STATE_BADGE[finding.state];
 
   const act = async (verb) => {
@@ -222,15 +240,14 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
     const days = e.notice_days_min;
     const basis = e.notice_basis || "calendar";
     if (anchorType === "term_end") {
-      return `Term ends ${longDate(e.current_term_end)} + ${days} ${basis} days notice → ${longDate(e.effective_action_deadline)}`;
+      return `Term ends ${longDate(e.current_term_end)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
     } else if (anchorType === "renewal_start") {
-      return `Renews ${longDate(e.next_renewal_date)} + ${days} ${basis} days notice → ${longDate(e.effective_action_deadline)}`;
+      return `Renews ${longDate(e.next_renewal_date)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
     } else {
-      return "Anchor requires review";
+      return "Notice anchor requires review";
     }
   };
 
-  const dr = e.days_remaining;
   const urgent = dr != null && dr <= 14 && finding.action_required;
 
   return (
@@ -291,8 +308,8 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                   {heroDate(heroIso) || "—"}
                 </p>
                 <p className="cc-days-remaining mt-2" data-testid="finding-days-remaining">
-                  {e.days_remaining != null
-                    ? `${e.days_remaining} day${e.days_remaining === 1 ? "" : "s"} remaining`
+                  {dr != null
+                    ? `${dr} day${dr === 1 ? "" : "s"} remaining`
                     : "Deadline not calculated"}
                 </p>
               </>
@@ -580,7 +597,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           <div className="bg-stamp/5 border border-stamp/30 p-3 flex items-start gap-2.5 rounded-sm">
             <AlertTriangle className="h-4 w-4 text-stamp mt-0.5 shrink-0" strokeWidth={2.5} />
             <p className="text-xs font-sans text-stamp font-semibold leading-relaxed">
-              Urgent action required · {e.days_remaining} days remaining to give notice.
+              Urgent action required · {dr} days remaining to give notice.
             </p>
           </div>
         )}
@@ -621,7 +638,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
               <div className="pt-1">
                 <button 
                   onClick={() => setExplanationOpen(!explanationOpen)} 
-                  className="cc-section-ref text-xs text-seal hover:underline flex items-center gap-1 bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer"
+                  className="cc-section-ref text-xs text-ink-soft hover:text-ink hover:underline flex items-center gap-1 bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer"
                 >
                   {explanationOpen ? "Hide explanation details ⌃" : "Show explanation details ⌄"}
                 </button>
@@ -692,9 +709,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         )}
       </AnimatePresence>
 
-      <div className="px-6 py-5 border-t border-rule">
-        <LegalFooter />
-      </div>
+      {/* Removed FindingCard local disclaimer block */}
 
       <CorrectFindingDialog finding={finding} open={correctOpen}
         onOpenChange={setCorrectOpen} onSaved={(f) => onChanged?.(f)} />
