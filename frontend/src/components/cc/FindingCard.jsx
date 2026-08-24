@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { LegalFooter, FindingBanner } from "@/components/cc/Primitives";
 import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
+import { AmendmentDiffDisclosure } from "@/components/cc/AmendmentDiff";
 
 const STATE_BADGE = {
   confirmed: { label: "Confirmed", cls: "bg-seal text-paper" },
@@ -189,7 +190,7 @@ const localDaysRemaining = (deadlineIso) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-export function FindingCard({ finding, onChanged, readOnly = false }) {
+export function FindingCard({ finding, onChanged, readOnly = false, supersededRecord = null }) {
   const [open, setOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -202,11 +203,12 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const isGeneric = GENERIC_TYPES.includes(finding.type);
   const needsReview = finding.validation_status === "needs_review";
   const dr = localDaysRemaining(e.effective_action_deadline);
+  const lapsed = dr != null && dr < 0;
   const t = needsReview
     ? "pending"
-    : (dr != null && dr <= 14 && finding.action_required)
+    : (dr != null && dr >= 0 && dr <= 14 && finding.action_required)
       ? "stamp"
-      : (dr != null && dr <= 60)
+      : (dr != null && dr >= 0 && dr <= 60)
         ? "pending"
         : "neutral";
   const badge = STATE_BADGE[finding.state];
@@ -223,6 +225,18 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   for (const s of finding.sources || []) {
     (grouped[s.purpose] = grouped[s.purpose] || []).push(s);
   }
+  // Presentation-level dedup: collapse rows with the same purpose + quote +
+  // location (e.g. a "renewal_term" clause tagged for both the initial term
+  // and the renewal period surfaces as one row, not two).
+  for (const p of Object.keys(grouped)) {
+    const seen = new Set();
+    grouped[p] = grouped[p].filter((s) => {
+      const key = `${(s.quote || "").trim()}|${s.location || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
   const orderedPurposes = Object.keys(PURPOSE_LABEL).filter((p) => grouped[p]);
 
   const noticeText = () => {
@@ -235,20 +249,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
 
   const heroIso = e.effective_action_deadline;
 
-  const renderAnchorFact = () => {
-    const anchorType = e.notice_anchor_type;
-    const days = e.notice_days_min;
-    const basis = e.notice_basis || "calendar";
-    if (anchorType === "term_end") {
-      return `Term ends ${longDate(e.current_term_end)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
-    } else if (anchorType === "renewal_start") {
-      return `Renews ${longDate(e.next_renewal_date)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
-    } else {
-      return "Notice anchor requires review";
-    }
-  };
-
-  const urgent = dr != null && dr <= 14 && finding.action_required;
+  const urgent = dr != null && dr >= 0 && dr <= 14 && finding.action_required;
 
   return (
     <div data-testid={`finding-${finding.id}`}
@@ -564,8 +565,12 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         </div>
         )}
 
-        {!readOnly && !needsReview && heroIso && (
+        {!readOnly && !needsReview && heroIso && !lapsed && (
           <RemindersBlock findingId={finding.id} deadline={heroIso} />
+        )}
+
+        {supersededRecord && (
+          <AmendmentDiffDisclosure oldFinding={supersededRecord} newFinding={finding} type={finding.type} />
         )}
 
         {/* Clause drawer toggle */}
@@ -610,37 +615,83 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           </div>
         )}
 
-        {/* 2. Timeline fact row (Term ends / Renews) */}
+        {/* 2. Deadline state + factual consequence */}
         <div className="pt-2 border-t border-rule space-y-3">
-          <p className="cc-days-remaining text-sm font-semibold text-ink leading-snug font-sans">
-            {renderAnchorFact()}
-          </p>
+          {needsReview ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-needs-review-mobile">NEEDS REVIEW</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed">
+                {finding.validation_notes?.[0] || "This finding needs review before a deadline can be shown."}
+              </p>
+            </>
+          ) : isTermination ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-termination-headline-mobile">{terminationHeadline(e)}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-termination-subhead-mobile">{terminationSubhead(e)}</p>
+            </>
+          ) : isPrice && !heroIso ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-price-headline-mobile">{priceHeadline(e)}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-price-subhead-mobile">{priceSubhead(e)}</p>
+            </>
+          ) : isGeneric && !heroIso ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-generic-headline-mobile">{(GENERIC_LABEL[finding.type] || "Obligation").toUpperCase()}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-generic-subhead-mobile">{genericSubhead(finding)}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-sans font-bold text-ink" data-testid="finding-hero-date-mobile">{heroDate(heroIso) || "—"}</p>
+              <p className="text-xs font-sans text-ink-soft" data-testid="finding-days-remaining-mobile">
+                {dr != null
+                  ? dr < 0
+                    ? `${Math.abs(dr)} day${Math.abs(dr) === 1 ? "" : "s"} past deadline`
+                    : `${dr} day${dr === 1 ? "" : "s"} remaining`
+                  : "Deadline not calculated"}
+              </p>
+            </>
+          )}
 
-          {dr != null && dr < 0 && finding.type === "renewal_notice" && (
+          {lapsed && finding.type === "renewal_notice" && (
             <div className="p-3 rounded-sm border border-rule bg-card/60 text-ink-soft text-xs font-sans leading-relaxed" data-testid="lapsed-disclaimer-mobile">
               Non-renewal window elapsed. This deadline can no longer be met under the cited clause. Contract is scheduled to renew {longDate(e.next_renewal_date)}.
             </div>
           )}
 
-          {/* Primary Action Button directly below the facts */}
+          {/* Confirm / Correct / Dismiss */}
           {!readOnly && (
-            <div className="pt-1">
+            <div className="pt-1 flex flex-wrap items-center gap-3">
               {finding.state === "unconfirmed" ? (
-                <Button size="sm" disabled={busy} onClick={() => act("confirm")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" disabled={busy} data-testid="finding-confirm-btn-mobile" onClick={() => act("confirm")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Confirm deadline
                 </Button>
               ) : (finding.action_required && (dr === null || dr >= 0)) ? (
-                <Button size="sm" onClick={() => navigate("/app/action-center")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/action-center")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Prepare notice
                 </Button>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft font-semibold font-sans">
+                <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft font-semibold font-sans" data-testid="finding-confirmed-badge-mobile">
                   <span className="h-1.5 w-1.5 rounded-full bg-ink-soft" /> Confirmed
                 </span>
               )}
+              {!isComposite && (
+                <button data-testid="finding-correct-btn-mobile" disabled={busy} onClick={() => setCorrectOpen(true)}
+                  className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer">
+                  Correct
+                </button>
+              )}
+              <button data-testid="finding-dismiss-btn-mobile" disabled={busy} onClick={() => act("dismiss")}
+                className="text-ink-soft hover:text-stamp hover:underline text-xs bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer">
+                Dismiss
+              </button>
             </div>
           )}
         </div>
+
+        {/* Amendment-diff disclosure, when this finding replaces a preserved reviewed one */}
+        {supersededRecord && (
+          <AmendmentDiffDisclosure oldFinding={supersededRecord} newFinding={finding} type={finding.type} mobile />
+        )}
 
         {/* 3. Concise visible explanation with disclosure */}
         {!needsReview && finding.plain_english && (
@@ -689,7 +740,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         </div>
 
         {/* 5. Reminders Block (placed correctly after evidence toggle on mobile) */}
-        {!readOnly && !needsReview && heroIso && (
+        {!readOnly && !needsReview && heroIso && !lapsed && (
           <div className="pt-2 border-t border-rule">
             <RemindersBlock findingId={finding.id} deadline={heroIso} />
           </div>

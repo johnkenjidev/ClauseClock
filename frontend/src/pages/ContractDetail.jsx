@@ -13,6 +13,7 @@ import {
 import { api } from "@/lib/api";
 import { Eyebrow } from "@/components/cc/Primitives";
 import { FindingCard } from "@/components/cc/FindingCard";
+import { CurrentEffectiveTerms } from "@/components/cc/CurrentEffectiveTerms";
 import { CONTRACT_DETAIL, TIMELINE } from "@/constants/testIds";
 
 const money = (v, cur) =>
@@ -55,6 +56,7 @@ export default function ContractDetail() {
   const [warnings, setWarnings] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [supersededCount, setSupersededCount] = useState(0);
+  const [supersededHistory, setSupersededHistory] = useState([]);
   const [expandedDocs, setExpandedDocs] = useState({});
   const [docUpload, setDocUpload] = useState({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" });
 
@@ -72,9 +74,23 @@ export default function ContractDetail() {
     api.get(`/contracts/${contractId}/timeline`)
       .then((r) => setTimeline(r.data.events || []))
       .catch(() => {});
+    api.get(`/contracts/${contractId}/superseded-history`)
+      .then((r) => setSupersededHistory(r.data.history || []))
+      .catch(() => {});
   }, [contractId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Map: replacement (current) finding id -> its preserved superseded predecessor.
+  const historyByReplacementId = {};
+  for (const h of supersededHistory) {
+    const repId = h.replacement_relationship?.superseded_by_finding_id;
+    if (repId) historyByReplacementId[repId] = h;
+  }
+  const renewalFinding = findings.find((f) => f.type === "renewal_notice");
+  const hasPendingAmendment = Boolean(
+    renewalFinding && renewalFinding.state === "unconfirmed" && historyByReplacementId[renewalFinding.id]
+  );
 
   const analyze = async () => {
     setAnalyzing(true);
@@ -159,6 +175,13 @@ export default function ContractDetail() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+
+        {renewalFinding && (
+          <div className="mt-8 pt-8 border-t border-rule">
+            <CurrentEffectiveTerms finding={renewalFinding} contract={contract} documents={documents}
+              hasPendingAmendment={hasPendingAmendment} />
+          </div>
+        )}
 
         {/* Annual value + provenance */}
         <div className="mt-6 rounded-lg border border-rule bg-card p-6">
@@ -330,7 +353,7 @@ export default function ContractDetail() {
 
           <div className="space-y-6">
             {findings.map((f) => (
-              <FindingCard key={f.id} finding={f}
+              <FindingCard key={f.id} finding={f} supersededRecord={historyByReplacementId[f.id]}
                 onChanged={(u) => setFindings((fs) => fs.map((x) => (x.id === u.id ? u : x)))} />
             ))}
           </div>
@@ -517,6 +540,13 @@ export default function ContractDetail() {
           )}
         </div>
 
+        {renewalFinding && (
+          <div className="pt-4 border-t border-rule">
+            <CurrentEffectiveTerms finding={renewalFinding} contract={contract} documents={documents}
+              hasPendingAmendment={hasPendingAmendment} mobile />
+          </div>
+        )}
+
         {/* 2, 3, 4, 5. Urgent finding + primary action, explanation, source language, reminders (all inside FindingCard!) */}
         <div className="space-y-4 pt-4 border-t border-rule">
           <Eyebrow className="font-sans">What matters</Eyebrow>
@@ -535,7 +565,7 @@ export default function ContractDetail() {
 
           <div className="space-y-4">
             {findings.map((f) => (
-              <FindingCard key={f.id} finding={f} readOnly={false}
+              <FindingCard key={f.id} finding={f} readOnly={false} supersededRecord={historyByReplacementId[f.id]}
                 onChanged={(u) => setFindings((fs) => fs.map((x) => (x.id === u.id ? u : x)))} />
             ))}
           </div>
