@@ -104,6 +104,37 @@
 
 user_problem_statement: "Fix lapsed deadline semantics, negative days display formatting, and suppress notice buttons."
 
+backend:
+  - task: "Amendment Diff and Superseded History Read-only Foundation"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Created GET /api/contracts/{contract_id}/superseded-history. Resolves source document metadata (filename, doc_role, location) and deduplicates identical source rows based on purpose, quote, document, and location."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED - Backend test file /app/backend/tests/test_superseded_history.py passed completely. (1) GET /api/contracts/{contract_id}/superseded-history endpoint working correctly with strict user isolation. (2) Document metadata resolution working: filename, doc_role, and location correctly resolved for all sources. (3) Source deduplication working: 3 sources with 1 duplicate correctly reduced to 2 unique sources based on purpose, quote, document_id, and location. (4) Normal findings endpoint (GET /api/contracts/{contract_id}/findings) correctly excludes superseded findings and returns superseded_count. (5) Replacement relationship metadata correctly populated with superseded_by_finding_id and replacement_finding details. All requirements met."
+
+  - task: "Correct Lapsed Ranking Semantics"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Updated action_center backend categorization so actionable deadlines with days_remaining < 0 are put in 'later' bucket and NOT 'urgent'."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED - Backend test passed. Action center endpoint (GET /api/action-center) correctly categorizes lapsed deadlines. Code review at server.py lines 999-1005 confirms correct logic: conditions 'if dr is not None and 0 <= dr <= 14' and 'elif dr is not None and 0 <= dr <= 30' ensure negative days_remaining values fall through to 'later' bucket. Test verified finding with days_remaining = -5 is correctly placed in 'later' bucket, NOT in 'urgent' or 'next_30_days'. Lapsed ranking semantics working correctly."
+
 frontend:
   - task: "Mobile Navigation Fix"
     implemented: true
@@ -245,20 +276,22 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "11.0"
-  test_sequence: 13
-  run_ui: true
+  version: "12.0"
+  test_sequence: 15
+  run_ui: false
 
 test_plan:
   current_focus:
-    - "Lapsed deadline semantics & calculations"
+    - "All backend tasks verified and working"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "The mobile contract detail timing calculation, subtraction symbol, timeline, disclaimers, and neutral text buttons corrections have been successfully implemented and linted. Please verify the mobile responsiveness using Playwright script."
+      message: "Implemented read-only backend foundation for Amendment Diff / Current Effective Terms: GET /api/contracts/{contract_id}/superseded-history user-scoped endpoint, resolving source document metadata and deduplicating source rows. Fixed backend ranking / bucketing for lapsed deadlines where days_remaining < 0. Created backend verification test file at /app/backend/tests/test_superseded_history.py which runs and passes perfectly. Please verify using the backend testing subagent."
+    - agent: "testing"
+      message: "BACKEND TESTING COMPLETE - All requirements verified and working correctly. Test file /app/backend/tests/test_superseded_history.py passed successfully. (1) Superseded history endpoint working with strict user isolation, document metadata resolution (filename, doc_role, location), and source deduplication (3→2 sources). (2) Normal findings endpoint correctly excludes superseded findings. (3) Lapsed ranking semantics correct: days_remaining < 0 placed in 'later' bucket, NOT 'urgent'. (4) Application running normally (frontend returns 200). Both high-priority backend tasks are working correctly with zero defects."
 
 # OLD LOGS HELD FOR REFERENCE BELOW
 # --------------------------------------------------

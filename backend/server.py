@@ -997,9 +997,9 @@ async def action_center(user_id: str = Depends(current_user_id)):
     buckets = {"urgent": [], "next_30_days": [], "later": []}
     for it in items:
         dr = (it.get("extracted") or {}).get("days_remaining")
-        if dr is not None and dr <= 14:
+        if dr is not None and 0 <= dr <= 14:
             buckets["urgent"].append(it)
-        elif dr is not None and dr <= 30:
+        elif dr is not None and 0 <= dr <= 30:
             buckets["next_30_days"].append(it)
         else:
             buckets["later"].append(it)

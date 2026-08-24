@@ -1,25 +1,36 @@
 <analysis>**original_problem_statement**: 
-Build ClauseClock step-by-step in controlled stages. The application is a full-stack SaaS for tracking contract renewals, clauses, and deadlines. It requires strict server-side  isolation, multi-source provenance data models for findings, strict adherence to a provided Part 5 design system, and explicit avoidance of hallucinating/inferring AI data. Architecture: FastAPI backend, React frontend, MongoDB. 
+Build ClauseClock step-by-step in controlled stages. The application is a full-stack SaaS for tracking contract renewals, clauses, and deadlines. It requires strict server-side  isolation, multi-source provenance data models for findings, strict adherence to a provided design system, and explicit avoidance of hallucinating/inferring AI data. 
 PRODUCT REQUIREMENTS: 
-- Stage 8 & 10 (Final Build Pass): Add 6 new finding types (, , , , , ) via a shared pipeline.
-- Wire generic types, , and  to the Action Center.
-- Fix renewal deadline-anchor defect (distinguish  vs ).
-- Implement user-override provenance tracking and handle legacy data states safely.
+- Complete a series of UI redesigns for V2 (/demo, Action Center, Dashboard, Homepage, Contracts list, Contract Detail).
+- Add read-only support for Amendment Diff / Current Effective Terms (superseded findings history API).
+- Implement lapsed deadline semantics and UI presentation.
 
 **User's preferred language**: English (Next agent MUST respond in English only)
 
 **what currently exists?** 
-A robust, end-to-end full-stack application. It features JWT-based authentication, contract document ingestion (GridFS), deterministic server-side date computation, and AI extraction (Claude Sonnet 4.6 via Emergent LLM Key) with strict verbatim quote validation. The UI is implemented in a dark-canonical Part 5 design system with an Action Center, outcomes tracking, multi-document supersession, and comprehensive finding type support (renewals, terminations, price-increases, and obligations). 
+A robust, full-stack application (FastAPI backend + React frontend + MongoDB) with JWT-based authentication. The application features deterministic server-side date computation and AI extraction (Claude Sonnet 4.6). The UI has been heavily refined to a V2 design system across , Action Center, Dashboard, Homepage, Contracts list, and Contract Detail screens, specifically optimizing for mobile responsiveness and strict formatting rules (e.g., local timezone date rendering, lapsed deadline states).
 
 **Last working item**: 
-    - Last item agent was working: Credit-conscious patch before redeploy. Preserving extraction provenance when a user manually overrides the notice anchor (demoting the prior quote to audit state instead of deleting it), adding a legacy UI banner () for older unclassified records, and statically inspecting termination logic.
-    - Status: COMPLETED
-    - Agent Testing Done: Y
-    - Which testing method agent to use? python -c / curl
+    - Last item agent was working: Adding read-only support for Amendment Diff / Current Effective Terms. The agent implemented  in  and updated  to deduplicate identical source rows.
+    - Status: IN PROGRESS / TESTING PENDING. (Note: The previous agent wrote the code, but failed to update  with the new task. As a result, the testing agent mistakenly re-tested the *previous* lapsed deadline task instead of the new superseded-history code).
+    - Agent Testing Done: N (Test agent was run with the wrong context).
+    - Which testing method agent to use? backend testing agent / frontend testing agent / curl.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: usage: pdfplumber [-h] [--structure | --structure-text]
+  Issue 1: Amendment Diff / Superseded History task was implemented but not properly tested or summarized
+     - Attempted fixes: The agent wrote the backend endpoint in  and updated deduplication logic in , but the testing subagent was invoked using an outdated .
+     - Next debug checklist: 
+        - Verify  returns correct payload structure.
+        - Verify  correctly deduplicates source rows. 
+        - Run proper tests for this specific feature and provide the correct summary to the user.
+     - Why fix this issue and what will be achieved with the fix?: Ensures the newly written feature actually works before proceeding.
+     - Status: TESTING PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on other issue: None
+
+  Issue 2: usage: pdfplumber [-h] [--structure | --structure-text]
                   [--format {csv,json,text}] [--types TYPES [TYPES ...]]
                   [--include-attrs INCLUDE_ATTRS [INCLUDE_ATTRS ...]]
                   [--exclude-attrs EXCLUDE_ATTRS [EXCLUDE_ATTRS ...]]
@@ -47,108 +58,123 @@ options:
   --laparams LAPARAMS
   --precision PRECISION
   --pages PAGES [PAGES ...]
-  --indent INDENT       Indent level for JSON pretty-printing. interleaves left/right column text on the same line for two-column PDFs.
-     - Attempted fixes: None. Known extraction limitation. User accepted it for now as an ambiguity the pipeline must handle conservatively.
+  --indent INDENT       Indent level for JSON pretty-printing. interleaves left/right column text on the same line for two-column PDFs
+     - Attempted fixes: None. Known extraction limitation. User accepted it for now.
      - Next debug checklist: None required right now.
-     - Why fix this issue and what will be achieved with the fix?: Will improve text extraction accuracy for two-column layouts.
+     - Why fix this issue and what will be achieved with the fix?: Will improve text extraction accuracy.
      - Status: NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix? Backend
      - Blocked on other issue: None
 
 **In progress Task List**: 
-None
+  Task 1: Read-only support for Amendment Diff / Current Effective Terms
+     - Where to resume: Validate the newly created  endpoint and the UI source deduplication. 
+     - What will be achieved with this?: Provides the foundation for viewing superseded terms without altering stored provenance.
+     - Status: TESTING PENDING
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on something: None
 
 **Upcoming and Future Tasks**:
-  Future Tasks:
-  - Task 1: Claim Reminders (P1) - Give each obligation a reminder so a service credit or rebate window is never missed once its trigger date is known.
-  - Task 2: Visual redesign phase (P1) - Mentioned by user (before continuing the redesign).
-  - Task 3: Targeted re-extraction of legacy renewal findings (P2) - Re-run extraction for legacy findings missing  to populate  + provenance (Awaiting explicit user approval).
+    Future Tasks:
+    - Task 1: Claim Reminders (P1) - Give each obligation a reminder so a service credit or rebate window is never missed once its trigger date is known.
+    - Task 2: Targeted re-extraction of legacy renewal findings (P2) - Re-run extraction for legacy findings missing  to populate  + provenance.
 
-**Completed work in this session**:
-- Stage 8 & 10 (Final Build Pass): Added 6 generic finding types via shared obligations pipeline (DONE)
-- Final Action Center wiring: Added the 6 new obligation types to the Action Center workflow (DONE)
-- Final Action Center completeness fix: Extended Action Center eligibility to  and  with deterministic deadlines (DONE)
-- Deadline-anchor defect fix: Fixed renewal deadline math by explicitly classifying  vs  anchor types (DONE)
-- Credit-conscious patch: Preserved extraction provenance on user anchor override. Added  for legacy unclassified findings (DONE)
+**Completed work in this session**
+- /demo page V2 redesign matching exact HTML mockups (DONE)
+- Action Center mobile & desktop timing presentation fixes, layout tweaks (DONE)
+- Dashboard mobile responsive redesign & pluralization polish (DONE)
+- Homepage  replaced with V2 mockup (DONE)
+- Contracts List  mobile responsiveness and text wrapping (DONE)
+- Contract Detail mobile UI, Timeline formatting, and local timezone-offset fixes (DONE)
+- Add Document action (UI) integrated into Contract Detail (DONE)
+- Lapsed deadline semantics & ranking calculations (DONE)
+- Superseded finding history endpoint + UI source deduplication (CODE WRITTEN, PENDING VALIDATION)
 
-**Earlier issues found/mentioned but not fixed**:
+**Earlier issues found/mentioned but not fixed**
 None
 
-**Known issue recurrence from previous fork**:
+**Known issue recurrence from previous fork**
   - Issue recurrence in previous fork: N/A
   - Recurrence count: 0
   - Status: NOT STARTED
 
-**Code Architecture**:
+**Code Architecture**
 
 
-**Key Technical Concepts**:
-FastAPI, React, MongoDB (Motor/GridFS for object storage), JWT HTTP-Only Cookies for Auth, strict marker-tolerant verbatim regex matching for provenance validation. Deterministic date arithmetic is handled purely in Python, never in the LLM. 
+**Key Technical Concepts**
+FastAPI, React, MongoDB (Motor/GridFS for object storage), JWT HTTP-Only Cookies for Auth. Strict adherence to V2 Dark Canonical design system (no generic SaaS gradients, specific semantic colors like ). Deterministic date arithmetic computed in Python.
 
-**key DB schema**:
+**key DB schema**
   - : 
   - : 
   - : 
 
-**changes in tech stack**:
+**changes in tech stack**
 None
 
-**All files of reference**:
--  (FindingType literals, Finding.anchor_version)
--  (notice anchor logic, compute_dates rewrite, obligations pipeline)
--  (Action Center  query, _apply_anchor_provenance)
--  (Classification vocabularies)
-- 
-- 
-- 
--  (New FindingBanner component)
+**All files of reference**
+-  (Added  endpoint)
+-  (Lapsed deadline ranking logic)
+-  (Deduplication logic, lapsed deadline UI)
+-  (Redesigned)
+-  (Mobile fixes)
+-  (Mobile fixes)
+-  (Redesigned)
+-  (Mobile fixes)
+-  (Mobile fixes, Add document action)
 
-**Areas that need refactoring**:
--  and  are large but refactoring was strictly forbidden by the user for these build passes.
+**Areas that need refactoring**
+-  and  are large but refactoring is strictly forbidden by the user for these build passes.
 
-**key api endpoints**:
+**key api endpoints**
+-  (NEW)
 - 
 - 
-- 
 
-**Critical Info for New Agent**:
-- **PRODUCTION ENVIRONMENT DEPLOYED**: The user has deployed the app to production (). If issues are reported, ALWAYS clarify if they are occurring in *preview* or *production*. You only have access to fix code in the *preview* environment. Do NOT share internal preview URLs with the user in your summaries.
-- **Anchor Versioning**:  is now explicit (, , ). Legacy records have . *Do not recompute legacy records implicitly*.
-- **Provenance Preserved**: When a user overrides , the old quote becomes demoted to  in the  array and  is set to .
-- **Emergent LLM Key**: ALWAYS use the Emergent Universal LLM Key for  calls.
-- **No Test Agent**: The user explicitly forbade the use of the  or full regression suites in recent steps to conserve time/credits. Rely on specific Python test scripts or curl validations if instructed similarly.
+**Critical Info for New Agent**
+- **TWO ENVIRONMENTS EXIST**: The user has deployed the app to production (). You only have access to fix code in the *PREVIEW* environment. If issues are reported, ALWAYS clarify if they are occurring in *preview* or *production*. Do NOT share internal preview URLs with the user in your summaries.
+- **Testing Agent Trap**: Always thoroughly update  with the *current* task's focus before invoking the testing agent. The previous agent failed to do this, resulting in the testing agent validating the wrong feature.
+- **Timezone Calculations**: Deadline days remaining must use the user/browser local calendar date for date-only deadlines.  is used for this on the frontend.
+- **Lapsed Semantics**: Deadlines where days_remaining < 0 are lapsed, not urgent. Do not use  red for them, and suppress primary notice actions for lapsed deadlines.
+- **Refactoring Restrictions**: Do not rewrite or reorganize code heavily; apply minimal localized fixes.
 
-**documents and test reports created in this job**:
+**documents and test reports created in this job**
+  - 
   - 
 
-**Last 10 User Messages and any pending HUMAN messages**:
- - (Patch) Make one small, credit-conscious patch before redeploy... Preserve provenance when user overrides notice anchor... (COMPLETED)
- - (System Notif) The user has deployed this app to production. There are now TWO environments... (ACKNOWLEDGED)
- - (Fix) Fix the ClauseClock deadline-anchor defect before continuing the redesign... conflates term_end vs renewal_start... (COMPLETED)
- - (Wiring) Final Action Center completeness fix... Extend eligibility logic to include termination_right and price_increase... (COMPLETED)
- - (Wiring) Final Stage 8/10 completion — Action Center wiring... Complete the missing Action Center integration for the 6 new obligation finding types. (COMPLETED)
- - (Clarification) User confirmed plan for Stage 8 & 10 shared obligations pipeline and sane deadline math. (COMPLETED)
- - (Feature) ClauseClock — Final Build Pass: Add the remaining planned finding types using the smallest possible change set... (COMPLETED)
+**Last 10 User Messages and any pending HUMAN messages**
+ - (Feature) Add read-only support for Amendment Diff / Current Effective Terms... user-scoped endpoint... deduplicate identical source rows... (CODE WRITTEN, VALIDATION PENDING)
+ - (Fix) Fix lapsed deadline semantics across existing renewal finding presentation/ranking... (COMPLETED)
+ - (Feature) Add a minimal Add document action to Contract Detail using the existing POST /contracts/{contract_id}/documents endpoint... (COMPLETED)
+ - (Fix) Contract Detail correction pass only. Fix these existing regressions... (COMPLETED)
+ - (UI/UX) Mobile Contract Detail only. Update ContractDetail.jsx and FindingCard.jsx only... (COMPLETED)
+ - (Fix) Contracts.jsx mobile only — two corrections: Replace break-all... (COMPLETED)
+ - (UI/UX) Mobile Contracts list only. Rebuild contract rows directly on the ground... (COMPLETED)
+ - (UI/UX) Replace only the public homepage to match the attached clauseclock-homepage-1.html... (COMPLETED)
+ - (Fix) In Dashboard.jsx, fix two mobile issues only: pluralize monitored count... remove duplicate mobile legal disclaimer... (COMPLETED)
+ - (UI/UX) Update mobile Dashboard only in Dashboard.jsx. Desktop must remain unchanged... (COMPLETED)
 
-**Project Health Check**:
-Healthy.
+**Project Health Check**
+Healthy, but the last implemented feature lacks proper testing confirmation due to a test plan mix-up.
 
-**3rd Party Integrations**:
+**3rd Party Integrations**
   • Claude Sonnet 4.6 (Extraction, Explanation, Drafting) — uses Emergent LLM Key
 
-**Testing status**:
-  - Testing agent used after significant changes: NO (per user's strict instruction)
+**Testing status**
+  - Testing agent used after significant changes: YES (But misused on the last task)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: 
+  - Test files created: None
   - Known regressions: None
 
-**Credentials to test flow**:
+**Credentials to test flow**
 Email: 
 Password: Check 
 
-**What agent forgot to execute**:
-Nothing. All instructions from the user were executed precisely. 
+**What agent forgot to execute**
+The agent completely forgot to update the testing plan in  before testing the Amendment Diff (Superseded History) task. Consequently, the agent's summary mistakenly stated that the Mobile Lapsed Deadline Semantics task was completed twice, failing to report on the Amendment Diff implementation requested by the user.
 
-**Debugging checklist for current issue**:
-No active issues blocking development. Next steps depend entirely on user's direction regarding the visual redesign or claim reminders.</analysis>
+**Debugging checklist for current issue**
+    Issue: Verify Amendment Diff / Superseded History API and UI deduplication.
+    Frontend files to check:  (check source quote deduplication)
+    Backend files to check:  (check  returns correct  and )</analysis>
