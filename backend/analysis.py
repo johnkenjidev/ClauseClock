@@ -1330,14 +1330,27 @@ def recompute_generic_derived(edits: dict, ftype: str, today: date = None) -> di
     }
 
 
+_RENEWAL_TOPIC_HINTS = ("renew", "non-renewal", "current term", "then-current term", "term end")
+
+
+def _shares_renewal_topic(rf: dict, validated_sources: list[dict]) -> bool:
+    """Confirms the notice_requirement is actually ABOUT the same non-renewal
+    notice provision (not just a coincidental day-count + document match)."""
+    text = " ".join(
+        [str(rf.get("window_reference") or "")] + [s.get("quote", "") for s in validated_sources]
+    ).lower()
+    return any(h in text for h in _RENEWAL_TOPIC_HINTS)
+
+
 def _is_duplicate_notice_requirement(rf: dict, validated_sources: list[dict],
                                      renewal_finding: dict | None) -> bool:
     """A notice_requirement candidate is a duplicate of the contract's own
-    renewal_notice non-renewal clause when it states the SAME day count AND
-    is grounded in a document the renewal finding's own notice_period /
-    notice_anchor sources already cite. Deterministic overlap check only —
-    never suppresses an unrelated notice_requirement (different day count or
-    document)."""
+    renewal_notice non-renewal clause when it states the SAME day count and
+    (when available) the same notice_basis, is grounded in a document the
+    renewal finding's own notice_period / notice_anchor sources already
+    cite, AND is actually about the same non-renewal notice provision.
+    Deterministic overlap check only — never suppresses an unrelated
+    notice_requirement (different day count, basis, document, or topic)."""
     if not renewal_finding:
         return False
     r_extracted = renewal_finding.get("extracted") or {}
@@ -1347,6 +1360,12 @@ def _is_duplicate_notice_requirement(rf: dict, validated_sources: list[dict],
     wv = rf.get("window_value")
     wu = (rf.get("window_unit") or "days").rstrip("s")
     if wv != r_days or wu != "day":
+        return False
+    r_basis = r_extracted.get("notice_basis")
+    n_basis = rf.get("window_basis")
+    if r_basis and n_basis and r_basis != n_basis:
+        return False
+    if not _shares_renewal_topic(rf, validated_sources):
         return False
     r_doc_ids = {s.get("document_id") for s in (renewal_finding.get("sources") or [])
                  if s.get("purpose") in ("notice_period", "notice_anchor")}
