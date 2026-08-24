@@ -284,7 +284,7 @@ function ChecklistPanel({ item }) {
   );
 
   const dr = item.extracted?.days_remaining;
-  const urgent = dr != null && dr <= 14;
+  const urgent = dr != null && dr >= 0 && dr <= 14;
 
   // Obligation finding types — reuse the same action workflow (log action,
   // record outcome, evidence) grounded in the finding's validated sources.
@@ -494,7 +494,7 @@ export default function ActionCenter() {
                     {items.map((it) => {
                       const sel = active?.id === it.id;
                       const dr = it.extracted?.days_remaining;
-                      const urgent = dr != null && dr <= 14;
+                      const urgent = dr != null && dr >= 0 && dr <= 14;
                       return (
                         <li key={it.id}>
                           <button data-testid={`action-item-${it.id}`} onClick={() => setActive(it)}

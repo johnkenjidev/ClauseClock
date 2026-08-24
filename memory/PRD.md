@@ -450,6 +450,10 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Scope**: styling/affordance only — no behavior, copy, routes, or backend changes. Self-tested via screenshots (desktop + mobile Contract Detail, Action Center) per explicit user instruction to skip the testing agent.
 - **Reported, not fixed** (out of scope per user's explicit "styling only" instruction): `ActionCenter.jsx`'s local `urgent` computation is missing the `days_remaining >= 0` guard fixed elsewhere in `FindingCard.jsx`/`analysis.py` — a lapsed action-center item could still render with stamp-red urgency styling. Flagged for a future fix.
 
+### Stage 25 — Action Center Lapsed Urgency Fix (2026-08)
+- **Fix**: `ActionCenter.jsx` had two local `urgent` computations (`dr != null && dr <= 14`) missing the `dr >= 0` guard — one drove the detail-view stamp-red urgent-alert banner/hero date, the other drove list-row stamp-red date/day-count text. Both now require `dr >= 0 && dr <= 14`, aligning with the server-side bucketing (`server.py` already gates its "urgent" bucket by `0 <= dr <= 14`).
+- **QA Verification**: `testing_agent` — lapsed item (dr=-277) confirmed neutral in both list row and detail view (no urgent-alert banner, no stamp-red classes); future urgent item (dr=7/8) still correctly shows stamp-red in both; ranking/bucketing unchanged. Zero defects, zero action items. Test data temporarily patched and fully restored.
+
 ### Stage 19 — Lapsed Ranking Score Correction (2026-08)
 - **Central Rank Fix**: `analysis.compute_rank()` no longer grants a time-urgency score bonus for lapsed deadlines (`days_remaining < 0`). The bonus (`100_000 - days*100`) now applies only when `days_remaining >= 0`, so lapsed items no longer outrank genuinely urgent/future actionable ones.
 - **Category Semantics Preserved**: `urgent` category still requires `action_required` AND `0 <= days_remaining <= 30`. Lapsed action items fall into the existing `risk` category (never `urgent`).
