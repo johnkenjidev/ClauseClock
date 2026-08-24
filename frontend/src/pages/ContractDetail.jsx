@@ -3,7 +3,7 @@
 // with location markers (inspectable, for extraction-quality testing).
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, FileText, AlertTriangle, ScanSearch, Loader2, Plus, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -56,6 +56,7 @@ export default function ContractDetail() {
   const [timeline, setTimeline] = useState([]);
   const [supersededCount, setSupersededCount] = useState(0);
   const [expandedDocs, setExpandedDocs] = useState({});
+  const [docUpload, setDocUpload] = useState({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" });
 
   const toggleDoc = (id) => {
     setExpandedDocs((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -180,14 +181,88 @@ export default function ContractDetail() {
         <div className="mt-8">
           <div className="flex items-center justify-between">
             <Eyebrow>What matters</Eyebrow>
-            {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
-              <Button onClick={analyze} disabled={analyzing} data-testid="analyze-button"
-                className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
-                <ScanSearch className="h-4 w-4" strokeWidth={2} />
-                {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find deadlines & increases"}
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setDocUpload((u) => ({ ...u, open: !u.open, file: null, err: "" }))}
+                className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1"
+                data-testid="add-document-toggle"
+              >
+                <Paperclip className="h-3 w-3" /> Add Document
+              </button>
+              {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
+                <Button onClick={analyze} disabled={analyzing} data-testid="analyze-button"
+                  className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5">
+                  <ScanSearch className="h-4 w-4" strokeWidth={2} />
+                  {analyzing ? "Reading clauses…" : findings.length ? "Re-analyze" : "Find deadlines & increases"}
+                </Button>
+              )}
+            </div>
           </div>
+
+          {docUpload.open && (
+            <div className="mt-4 p-5 rounded-lg border border-rule bg-card space-y-4" data-testid="doc-upload-box">
+              <Eyebrow>Add Document to Contract</Eyebrow>
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-ink-soft uppercase tracking-wider font-semibold font-sans">Document Role</label>
+                  <select 
+                    value={docUpload.doc_role} 
+                    onChange={(e) => setDocUpload((u) => ({ ...u, doc_role: e.target.value }))}
+                    className="bg-paper border border-rule rounded h-9 px-3 text-sm text-ink font-sans outline-none focus:ring-1 focus:ring-seal"
+                    data-testid="upload-doc-role"
+                  >
+                    <option value="amendment">Amendment</option>
+                    <option value="order_form">Order form</option>
+                    <option value="exhibit">Exhibit</option>
+                    <option value="sla">SLA</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-ink-soft uppercase tracking-wider font-semibold font-sans">Choose PDF or DOCX</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.docx"
+                    onChange={(e) => setDocUpload((u) => ({ ...u, file: e.target.files?.[0] || null }))}
+                    className="bg-paper border border-rule rounded p-2 text-xs text-ink font-sans outline-none cursor-pointer"
+                    data-testid="upload-file-input"
+                  />
+                </div>
+
+                {docUpload.err && <p className="text-xs text-stamp font-semibold font-sans">{docUpload.err}</p>}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <Button 
+                    disabled={docUpload.uploading || !docUpload.file}
+                    onClick={async () => {
+                      setDocUpload((u) => ({ ...u, uploading: true, err: "" }));
+                      const fd = new FormData();
+                      fd.append("file", docUpload.file);
+                      fd.append("doc_role", docUpload.doc_role);
+                      try {
+                        await api.post(`/contracts/${contractId}/documents`, fd);
+                        setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" });
+                        load();
+                      } catch (e) {
+                        setDocUpload((u) => ({ ...u, uploading: false, err: e.response?.data?.detail || "Upload failed" }));
+                      }
+                    }}
+                    className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-5 font-semibold text-xs"
+                    data-testid="upload-submit-btn"
+                  >
+                    {docUpload.uploading ? "Uploading…" : "Upload Document"}
+                  </Button>
+                  <button 
+                    onClick={() => setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" })}
+                    className="text-xs text-ink-soft hover:text-ink font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="cc-seal-rule mt-4 mb-5" />
 
           {supersededCount > 0 && (
@@ -340,6 +415,13 @@ export default function ContractDetail() {
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
+            <button 
+              onClick={() => setDocUpload((u) => ({ ...u, open: !u.open, file: null, err: "" }))}
+              className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans tracking-wide uppercase font-semibold cursor-pointer flex items-center gap-1"
+              data-testid="add-document-toggle"
+            >
+              <Paperclip className="h-3 w-3" /> Add Document
+            </button>
             {data.documents.some((d) => d.extraction_method !== "failed_no_text") && (
               <button 
                 onClick={analyze} 
@@ -361,6 +443,70 @@ export default function ContractDetail() {
               Delete Contract
             </button>
           </div>
+
+          {docUpload.open && (
+            <div className="p-4 rounded border border-rule bg-card space-y-4" data-testid="doc-upload-box">
+              <span className="cc-eyebrow font-sans block text-xs">Add Document to Contract</span>
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-ink-soft uppercase tracking-wider font-semibold font-sans">Document Role</label>
+                  <select 
+                    value={docUpload.doc_role} 
+                    onChange={(e) => setDocUpload((u) => ({ ...u, doc_role: e.target.value }))}
+                    className="bg-paper border border-rule rounded h-8 px-2 text-xs text-ink font-sans outline-none focus:ring-1 focus:ring-seal"
+                    data-testid="upload-doc-role"
+                  >
+                    <option value="amendment">Amendment</option>
+                    <option value="order_form">Order form</option>
+                    <option value="exhibit">Exhibit</option>
+                    <option value="sla">SLA</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-ink-soft uppercase tracking-wider font-semibold font-sans">Choose PDF or DOCX</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.docx"
+                    onChange={(e) => setDocUpload((u) => ({ ...u, file: e.target.files?.[0] || null }))}
+                    className="bg-paper border border-rule rounded p-1.5 text-[11px] text-ink font-sans outline-none cursor-pointer"
+                    data-testid="upload-file-input"
+                  />
+                </div>
+
+                {docUpload.err && <p className="text-[11px] text-stamp font-semibold font-sans">{docUpload.err}</p>}
+
+                <div className="flex items-center gap-3 pt-1">
+                  <Button 
+                    disabled={docUpload.uploading || !docUpload.file}
+                    onClick={async () => {
+                      setDocUpload((u) => ({ ...u, uploading: true, err: "" }));
+                      const fd = new FormData();
+                      fd.append("file", docUpload.file);
+                      fd.append("doc_role", docUpload.doc_role);
+                      try {
+                        await api.post(`/contracts/${contractId}/documents`, fd);
+                        setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" });
+                        load();
+                      } catch (e) {
+                        setDocUpload((u) => ({ ...u, uploading: false, err: e.response?.data?.detail || "Upload failed" }));
+                      }
+                    }}
+                    className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold text-xs"
+                    data-testid="upload-submit-btn"
+                  >
+                    {docUpload.uploading ? "Uploading…" : "Upload"}
+                  </Button>
+                  <button 
+                    onClick={() => setDocUpload({ open: false, file: null, doc_role: "amendment", uploading: false, err: "" })}
+                    className="text-xs text-ink-soft hover:text-ink font-semibold font-sans uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {analyzeError && <p className="cc-days-remaining text-stamp text-xs" data-testid="analyze-error">{analyzeError}</p>}
 
