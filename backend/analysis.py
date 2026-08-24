@@ -460,7 +460,7 @@ def compute_rank(finding: dict, today: date = None):
     if money is not None:
         score += min(int(money), 100_000)
 
-    if action and days is not None and days <= 30:
+    if action and days is not None and 0 <= days <= 30:
         cat = "urgent"
     elif action:
         cat = "risk"

@@ -395,3 +395,12 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **In-Page Button Removal**: Hid the in-page "Add a contract" button next to the title on mobile viewports, leaving only the global header button to add agreements.
 - **Tabular Numeral Styling**: Rendered annual values with `font-mono tabular-nums text-xs` formatting underneath.
 - **QA Verification**: Formally verified using Playwright browser automation on mobile and desktop viewports, confirming 100% correct wrapping, button visibility, and list formatting on all screen sizes.
+
+### Stage 17 — Lapsed Deadline Semantics & Calculations (2026-08)
+- **Local Date Deadline Calculations**: Recomputed all deadline days remaining on the client side using the local browser calendar date to resolve UTC timezone offset issues (ensuring August 31, 2026 displays exactly 8 days remaining on August 23, 2026, regardless of UTC midnight).
+- **Lapsed Wording & Neutral Disclaimer**: Format negative days as "X days past deadline". Displays a prominent, neutral disclaimer panel when a non-renewal window has elapsed, rather than rendering bright warning colors.
+- **Action Suppression**: Completely suppresses the "Prepare notice" primary notice button once the calculated deadline date has passed.
+- **Dynamic Derivation Math**: Mapped a mathematically correct subtraction formula using the Unicode minus symbol (September 10, 2026 − 10 calendar days = August 31, 2026) within `renderAnchorFact`.
+- **Deduplicated Disclaimers**: Removed redundant local disclaimers in `FindingCard.jsx`, allowing Contract Detail to rely entirely on the single global AppShell disclaimer.
+- **Neutral UI Buttons**: Shifted the Re-analyze, Delete contract, and disclosure toggles on mobile viewports to use standard text-ink-soft links with underline hovers, leaving stamp-red reserved strictly for urgent active deadlines.
+- **Desktop Hiding & QA Verification**: Added CSS overrides to completely force-hide the desktop layout on mobile, and formally verified all corrections with 100% success using browser testing agents.

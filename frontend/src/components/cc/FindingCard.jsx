@@ -516,6 +516,12 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           </div>
         )}
 
+        {dr != null && dr < 0 && finding.type === "renewal_notice" && (
+          <div className="mt-6 p-4 rounded-md border border-rule bg-card/60 text-ink-soft text-sm font-sans" data-testid="lapsed-disclaimer">
+            Non-renewal window elapsed. This deadline can no longer be met under the cited clause. Contract is scheduled to renew {longDate(e.next_renewal_date)}.
+          </div>
+        )}
+
         {/* Stage 3 actions — CTA respects state (Part 5) */}
         {!readOnly && (
         <div className="mt-6">
@@ -531,7 +537,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
               className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
               <Check className="h-4 w-4" strokeWidth={2.5} /> Confirm deadline
             </Button>
-          ) : finding.action_required ? (
+          ) : (finding.action_required && (dr === null || dr >= 0)) ? (
             <Button size="sm" data-testid="finding-prepare-notice-btn"
               onClick={() => navigate("/app/action-center")}
               className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
@@ -608,6 +614,12 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             {renderAnchorFact()}
           </p>
 
+          {dr != null && dr < 0 && finding.type === "renewal_notice" && (
+            <div className="p-3 rounded-sm border border-rule bg-card/60 text-ink-soft text-xs font-sans leading-relaxed" data-testid="lapsed-disclaimer-mobile">
+              Non-renewal window elapsed. This deadline can no longer be met under the cited clause. Contract is scheduled to renew {longDate(e.next_renewal_date)}.
+            </div>
+          )}
+
           {/* Primary Action Button directly below the facts */}
           {!readOnly && (
             <div className="pt-1">
@@ -615,7 +627,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 <Button size="sm" disabled={busy} onClick={() => act("confirm")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Confirm deadline
                 </Button>
-              ) : finding.action_required ? (
+              ) : (finding.action_required && (dr === null || dr >= 0)) ? (
                 <Button size="sm" onClick={() => navigate("/app/action-center")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Prepare notice
                 </Button>
