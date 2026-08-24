@@ -309,7 +309,9 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 </p>
                 <p className="cc-days-remaining mt-2" data-testid="finding-days-remaining">
                   {dr != null
-                    ? `${dr} day${dr === 1 ? "" : "s"} remaining`
+                    ? dr < 0
+                      ? `${Math.abs(dr)} day${Math.abs(dr) === 1 ? "" : "s"} past deadline`
+                      : `${dr} day${dr === 1 ? "" : "s"} remaining`
                     : "Deadline not calculated"}
                 </p>
               </>
@@ -599,7 +601,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         </div>
 
         {/* 1. Urgent finding alert (stamp red only if <= 14d and action required) */}
-        {urgent && (
+        {urgent && dr != null && dr >= 0 && (
           <div className="bg-stamp/5 border border-stamp/30 p-3 flex items-start gap-2.5 rounded-sm">
             <AlertTriangle className="h-4 w-4 text-stamp mt-0.5 shrink-0" strokeWidth={2.5} />
             <p className="text-xs font-sans text-stamp font-semibold leading-relaxed">

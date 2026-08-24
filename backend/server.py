@@ -359,17 +359,140 @@ async def list_findings(contract_id: str, user_id: str = Depends(current_user_id
     contract = await db.contracts.find_one({"_id": oid, "user_id": user_id})
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found.")
-    from models import Finding
+    from models import Finding, Document
     findings = []
     superseded_count = 0
     async for f in db.findings.find({"contract_id": contract_id, "user_id": user_id}):
         if f.get("superseded_by_finding_id"):
             superseded_count += 1
             continue
-        findings.append(Finding.from_mongo(f).model_dump())
+        finding_obj = Finding.from_mongo(f)
+        f_dict = finding_obj.model_dump()
+
+        # Resolve source document metadata + deduplicate sources
+        unique_sources = []
+        seen_keys = set()
+        for source in f_dict.get("sources", []):
+            doc_id = source.get("document_id")
+            source_doc = None
+            if doc_id:
+                doc_doc = await db.documents.find_one({"_id": ObjectId(str(doc_id)), "user_id": user_id})
+                if doc_doc:
+                    source_doc = Document.from_mongo(doc_doc).model_dump()
+            
+            # Resolve document metadata
+            doc_meta = None
+            if source_doc:
+                doc_meta = {
+                    "document_id": str(source_doc["id"]),
+                    "filename": source_doc["filename"],
+                    "doc_role": source_doc["doc_role"]
+                }
+            source["document_metadata"] = doc_meta
+
+            # Deduplicate source row based on purpose, quote, document, location
+            dedup_key = (
+                source.get("purpose"),
+                source.get("quote"),
+                str(source.get("document_id") or ""),
+                source.get("location")
+            )
+            if dedup_key not in seen_keys:
+                seen_keys.add(dedup_key)
+                unique_sources.append(source)
+
+        f_dict["sources"] = unique_sources
+        findings.append(f_dict)
+
     findings = analysis.apply_ranking(findings)  # refresh time-dependent rank on read
     return {"findings": findings, "status": contract.get("status"),
             "superseded_count": superseded_count}
+
+
+@api_router.get("/contracts/{contract_id}/superseded-history")
+async def list_superseded_history(contract_id: str, user_id: str = Depends(current_user_id)):
+    """
+    Returns preserved superseded findings for a contract, along with replacement relationships
+    and complete resolved source document metadata.
+    Deduplicates identical source rows.
+    """
+    oid = await _oid(user_id, contract_id)
+    contract = await db.contracts.find_one({"_id": oid, "user_id": user_id})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    from models import Finding, Document
+    history = []
+    
+    # Query all superseded findings
+    cursor = db.findings.find({
+        "contract_id": contract_id,
+        "user_id": user_id,
+        "superseded_by_finding_id": {"$ne": None}
+    }).sort("created_at", -1)
+
+    async for doc in cursor:
+        finding = Finding.from_mongo(doc)
+        f_dict = finding.model_dump()
+        
+        # Resolve source document metadata + deduplicate sources
+        unique_sources = []
+        seen_keys = set()
+        for source in f_dict.get("sources", []):
+            doc_id = source.get("document_id")
+            source_doc = None
+            if doc_id:
+                doc_doc = await db.documents.find_one({"_id": ObjectId(str(doc_id)), "user_id": user_id})
+                if doc_doc:
+                    source_doc = Document.from_mongo(doc_doc).model_dump()
+            
+            # Resolve document metadata
+            doc_meta = None
+            if source_doc:
+                doc_meta = {
+                    "document_id": str(source_doc["id"]),
+                    "filename": source_doc["filename"],
+                    "doc_role": source_doc["doc_role"]
+                }
+            source["document_metadata"] = doc_meta
+
+            # Deduplicate source row based on purpose, quote, document, location
+            dedup_key = (
+                source.get("purpose"),
+                source.get("quote"),
+                str(source.get("document_id") or ""),
+                source.get("location")
+            )
+            if dedup_key not in seen_keys:
+                seen_keys.add(dedup_key)
+                unique_sources.append(source)
+
+        f_dict["sources"] = unique_sources
+        
+        # Replacement relationship detail
+        rep_id = f_dict.get("superseded_by_finding_id")
+        replacement_finding = None
+        if rep_id:
+            rep_doc = await db.findings.find_one({"_id": ObjectId(str(rep_id)), "user_id": user_id})
+            if rep_doc:
+                rep_obj = Finding.from_mongo(rep_doc).model_dump()
+                replacement_finding = {
+                    "id": str(rep_obj["id"]),
+                    "validation_status": rep_obj["validation_status"],
+                    "state": rep_obj["state"],
+                    "rank_category": rep_obj["rank_category"],
+                    "days_remaining": (rep_obj.get("extracted") or {}).get("days_remaining"),
+                    "effective_action_deadline": (rep_obj.get("extracted") or {}).get("effective_action_deadline")
+                }
+        f_dict["replacement_relationship"] = {
+            "is_superseded": True,
+            "superseded_by_finding_id": str(rep_id) if rep_id else None,
+            "replacement_finding": replacement_finding
+        }
+
+        history.append(f_dict)
+    
+    return {"history": history}
 
 
 # ---- Stage 3: Confirm / Correct / Dismiss --------------------------------

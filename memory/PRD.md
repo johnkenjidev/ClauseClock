@@ -404,3 +404,11 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Deduplicated Disclaimers**: Removed redundant local disclaimers in `FindingCard.jsx`, allowing Contract Detail to rely entirely on the single global AppShell disclaimer.
 - **Neutral UI Buttons**: Shifted the Re-analyze, Delete contract, and disclosure toggles on mobile viewports to use standard text-ink-soft links with underline hovers, leaving stamp-red reserved strictly for urgent active deadlines.
 - **Desktop Hiding & QA Verification**: Added CSS overrides to completely force-hide the desktop layout on mobile, and formally verified all corrections with 100% success using browser testing agents.
+
+### Stage 18 — Read-Only Amendment Diff & Metadata Resolution (2026-08)
+- **Resolved Document Metadata**: Augmented `/contracts/{id}/findings` and `/contracts/{id}/superseded-history` response payloads to include fully resolved source document metadata (document id, filename, document role, and location) for every citation in the `sources` list.
+- **Superseded Finding History API**: Added a new user-scoped endpoint `GET /api/contracts/{contract_id}/superseded-history` returning preserved superseded findings, full completed sources with document metadata, and clear, nested replacement relationship fields (`replacement_finding`).
+- **Deduplicated Source Rows**: Integrated deep row-deduplication inside both endpoints to automatically prune identical purpose/quote/document/location citations, keeping the evidence ledger lightweight.
+- **Normal Findings Invariants Preserved**: Kept standard `/contracts/{id}/findings` list query untouched, ensuring superseded elements do not leak or compete with active findings. No backend schema migration or LLM calls triggered.
+- **Lapsed Deadline Semantics Polish**: Fixed edge case bugs inside `FindingCard.jsx` to render urgent warning blocks and `"Prepare notice"` actions only when local days remaining evaluates as positive (`dr >= 0`). Format negative countdown values cleanly as `"X days past deadline"`.
+- **QA Verification**: Formally linted with zero warnings and verified responsiveness using Playwright browsers.
