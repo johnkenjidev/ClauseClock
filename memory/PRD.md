@@ -412,3 +412,9 @@ the Part 5 ClauseClock design system (not a generic AI-SaaS look).
 - **Normal Findings Invariants Preserved**: Kept standard `/contracts/{id}/findings` list query untouched, ensuring superseded elements do not leak or compete with active findings. No backend schema migration or LLM calls triggered.
 - **Lapsed Deadline Semantics Polish**: Fixed edge case bugs inside `FindingCard.jsx` to render urgent warning blocks and `"Prepare notice"` actions only when local days remaining evaluates as positive (`dr >= 0`). Format negative countdown values cleanly as `"X days past deadline"`.
 - **QA Verification**: Formally linted with zero warnings and verified responsiveness using Playwright browsers.
+
+### Stage 19 — Lapsed Ranking Score Correction (2026-08)
+- **Central Rank Fix**: `analysis.compute_rank()` no longer grants a time-urgency score bonus for lapsed deadlines (`days_remaining < 0`). The bonus (`100_000 - days*100`) now applies only when `days_remaining >= 0`, so lapsed items no longer outrank genuinely urgent/future actionable ones.
+- **Category Semantics Preserved**: `urgent` category still requires `action_required` AND `0 <= days_remaining <= 30`. Lapsed action items fall into the existing `risk` category (never `urgent`).
+- **Scope**: Backend-only, single function change. No schema/UI/LLM changes. Action Center bucketing (lapsed -> "later") was already correct and untouched.
+- **Verification**: Direct unit check via `analysis.compute_rank()` confirmed lapsed score (1,100,000) < urgent (1,199,100) and < future (1,187,800), with category `risk` for lapsed. Backend hot-reloaded cleanly with no errors.

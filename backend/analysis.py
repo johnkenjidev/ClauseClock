@@ -455,7 +455,7 @@ def compute_rank(finding: dict, today: date = None):
         score += 1_000_000
     if action:
         score += 100_000
-    if days is not None:
+    if days is not None and days >= 0:
         score += max(0, 100_000 - days * 100)
     if money is not None:
         score += min(int(money), 100_000)
