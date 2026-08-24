@@ -316,15 +316,17 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
         db, contract, user_id, renewal_finding=(findings[0] if findings else None))
 
     # Stage 9: reconcile regenerated findings against preserved reviewed ones.
-    # If a reviewed finding changed, keep it and point superseded_by at the new
-    # (unconfirmed) replacement; if unchanged, drop the duplicate replacement.
+    # Always compare the CURRENT unconfirmed replacement against the nearest
+    # prior reviewed (confirmed/corrected) ancestor of that type — not just
+    # whichever reviewed record still has no pointer set — so the pointer
+    # keeps up with repeated re-analysis instead of going stale/orphaned.
     superseded_changes = 0
     for ftype in (["renewal_notice", "price_increase", "termination_right"]
                   + analysis.GENERIC_TYPES):
-        reviewed = await db.findings.find_one({
-            "contract_id": contract_id, "user_id": user_id, "type": ftype,
-            "state": {"$in": ["confirmed", "corrected"]},
-            "superseded_by_finding_id": None})
+        reviewed = await db.findings.find_one(
+            {"contract_id": contract_id, "user_id": user_id, "type": ftype,
+             "state": {"$in": ["confirmed", "corrected"]}},
+            sort=[("created_at", -1)])
         if not reviewed:
             continue
         replacement = await db.findings.find_one({
@@ -334,6 +336,10 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
             continue
         if (reviewed.get("extracted") or {}) == (replacement.get("extracted") or {}):
             await db.findings.delete_one({"_id": replacement["_id"]})  # no change
+            if reviewed.get("superseded_by_finding_id"):
+                await db.findings.update_one(
+                    {"_id": reviewed["_id"], "user_id": user_id},
+                    {"$set": {"superseded_by_finding_id": None}})
         else:
             await db.findings.update_one(
                 {"_id": reviewed["_id"], "user_id": user_id},

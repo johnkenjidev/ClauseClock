@@ -1,0 +1,22 @@
+{
+  "summary": "Verified iteration-13 fix: superseded_by_finding_id pointer now refreshes correctly on EVERY re-analysis. Ran 3 consecutive POST /contracts/{id}/analyze calls without re-confirming in between on the reserved contract 6a8c968f38ffe86939d74f51 (after correcting the confirmed baseline back to notice_days_min/max=10). On each of the 3 iterations, GET /superseded-history?rec.replacement_relationship.superseded_by_finding_id matched the CURRENT visible unconfirmed replacement finding id (three distinct fresh replacement ids observed, pointer refreshed each time; superseded_changes=1 per call). UI check on /app/contracts/6a8c968f38ffe86939d74f51 after the 3rd re-analysis: 'Review amendment changes' disclosure is visible and correctly shows 'Notice period 10-10 days -> 30 days' and 'Deadline December 21, 2026 -> December 1, 2026', and the CET 'awaiting your review' note is present. Regression: no side-effects observed on other findings; existing notice_requirement finding still renders as before.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_supersession_persistence.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py analyze_contract() reconciliation loop is correct: finds MOST RECENT confirmed/corrected finding (sort created_at desc) and unconditionally $set's superseded_by_finding_id to the current unconfirmed replacement, or clears it to None when extracted values match. This is the exact fix needed and matches the reported RCA.",
+    "Minor (not blocking): GET /contracts/{id}/superseded-history's replacement_relationship.replacement_finding is populated by looking up rep_doc, but if a stale/orphaned pointer ever existed it would silently be None; the new update logic prevents that scenario going forward. No action needed.",
+    "server.py is 1602 lines — exceeds the 700-line guideline; consider splitting into routers (auth/contracts/findings/reports). Pre-existing, out of scope for this iteration."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "test@clauseclock.app / Test1234! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Used existing test contract 6a8c968f38ffe86939d74f51. Test corrected its confirmed renewal_notice finding back to notice_days_min/max=10 so re-analysis reliably produces a differing (30-day) replacement.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Contract 6a8c968f38ffe86939d74f51 currently has its renewal_notice in state=corrected with notice_days_min/max=10 (baseline) and an unconfirmed replacement pointing to 30-day amendment values; three chained re-analyses were executed successfully. If a future iteration needs a clean baseline, either re-confirm the current unconfirmed finding via UI/API or delete and re-ingest. The 2nd fixture contract 6a8ca06ec03ad07f41824cb3 was not exercised this iteration (was flagged only as regression for a prior fix).",
+  "rca of the issue": "Before fix: reconciliation query filtered on `superseded_by_finding_id: None`, so once the reviewed finding's pointer was set by the first re-analysis, it was permanently excluded from future reconciliation. On the 2nd/3rd re-analysis, the pointer stayed pointing at an already-deleted intermediate replacement (orphan), so the frontend historyByReplacementId lookup by CURRENT finding id returned nothing, hiding the 'Review amendment changes' disclosure and the CET awaiting-review note. Fix: drop the pointer filter, always pick most-recent reviewed by created_at desc, and unconditionally $set the pointer to the current unconfirmed replacement (or reset to None when values match). Verified pointer refresh across 3 consecutive analyses and UI diff still visible."
+}
