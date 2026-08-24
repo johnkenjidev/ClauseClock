@@ -39,6 +39,23 @@ function noticeText(e) {
     : `${e.notice_days_min} ${basis}`;
 }
 
+// notice_recipient ONLY: treat two recipient strings as unchanged when they
+// contain the same set of email addresses (case/order insensitive), e.g. a
+// re-worded clause naming the same mailbox. No broad semantic normalization
+// is applied to any other field — everything else stays a strict text diff.
+function emailSetKey(text) {
+  if (!text) return null;
+  const emails = (text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/gi) || []).map((s) => s.toLowerCase());
+  if (!emails.length) return null;
+  return [...new Set(emails)].sort().join(",");
+}
+function recipientUnchanged(before, after) {
+  const b = emailSetKey(before);
+  const a = emailSetKey(after);
+  if (b == null || a == null) return false;
+  return b === a;
+}
+
 // Field -> label + governing source purpose + formatter. Purposes are the
 // SAME purpose strings already emitted by extraction (never invented here).
 const FIELD_DEFS = {
@@ -52,7 +69,7 @@ const FIELD_DEFS = {
     { label: "Notice anchor", purpose: "notice_anchor",
       fmt: (e) => (e.notice_anchor_type ? (ANCHOR_LABEL[e.notice_anchor_type] || e.notice_anchor_type) : null) },
     { label: "Notice method", purpose: "notice_method", fmt: (e) => e.notice_method || null },
-    { label: "Notice recipient", purpose: "notice_recipient", fmt: (e) => e.notice_recipient || null },
+    { label: "Notice recipient", purpose: "notice_recipient", fmt: (e) => e.notice_recipient || null, eq: recipientUnchanged },
     { label: "Term ends", purpose: "renewal_term", fmt: (e) => longDate(e.current_term_end) },
     { label: "Renewal starts", purpose: "renewal_term", fmt: (e) => longDate(e.next_renewal_date) },
     { label: "Deadline", purpose: "notice_period", fmt: (e) => longDate(e.effective_action_deadline) },
@@ -107,6 +124,7 @@ export function buildAmendmentDiff(type, oldFinding, newFinding) {
     const after = def.fmt(newE);
     if (before === after) continue;
     if (before == null && after == null) continue;
+    if (def.eq && def.eq(before, after)) continue;
     rows.push({ label: def.label, before: before ?? "Not stated", after: after ?? "Not stated", purpose: def.purpose });
   }
   return rows;

@@ -313,7 +313,7 @@ async def analyze_contract(contract_id: str, user_id: str = Depends(current_user
     term_findings, term_warnings = await analysis.run_termination_analysis(
         db, contract, user_id)
     obl_findings, obl_warnings = await analysis.run_obligations_analysis(
-        db, contract, user_id)
+        db, contract, user_id, renewal_finding=(findings[0] if findings else None))
 
     # Stage 9: reconcile regenerated findings against preserved reviewed ones.
     # If a reviewed finding changed, keep it and point superseded_by at the new

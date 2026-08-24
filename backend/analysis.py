@@ -1330,7 +1330,32 @@ def recompute_generic_derived(edits: dict, ftype: str, today: date = None) -> di
     }
 
 
-async def run_obligations_analysis(db, contract: dict, user_id: str) -> tuple[list[dict], list[str]]:
+def _is_duplicate_notice_requirement(rf: dict, validated_sources: list[dict],
+                                     renewal_finding: dict | None) -> bool:
+    """A notice_requirement candidate is a duplicate of the contract's own
+    renewal_notice non-renewal clause when it states the SAME day count AND
+    is grounded in a document the renewal finding's own notice_period /
+    notice_anchor sources already cite. Deterministic overlap check only —
+    never suppresses an unrelated notice_requirement (different day count or
+    document)."""
+    if not renewal_finding:
+        return False
+    r_extracted = renewal_finding.get("extracted") or {}
+    r_days = r_extracted.get("notice_days_min")
+    if r_days is None:
+        return False
+    wv = rf.get("window_value")
+    wu = (rf.get("window_unit") or "days").rstrip("s")
+    if wv != r_days or wu != "day":
+        return False
+    r_doc_ids = {s.get("document_id") for s in (renewal_finding.get("sources") or [])
+                 if s.get("purpose") in ("notice_period", "notice_anchor")}
+    n_doc_ids = {s.get("document_id") for s in validated_sources}
+    return bool(r_doc_ids & n_doc_ids)
+
+
+async def run_obligations_analysis(db, contract: dict, user_id: str,
+                                   renewal_finding: dict | None = None) -> tuple[list[dict], list[str]]:
     """Orchestrate the shared obligations pipeline; persist 0-N findings across
     the 6 generic types. One locate + one extract (returns a list)."""
     from models import Finding, FindingSource
@@ -1377,6 +1402,13 @@ async def run_obligations_analysis(db, contract: dict, user_id: str) -> tuple[li
             rf.get("sources", []), chunk_map, docs_by_id)
         if not validated:
             continue  # invariant: sources[] never empty
+
+        # A notice_requirement that merely restates the renewal_notice's own
+        # non-renewal clause competes with it rather than adding new
+        # information — suppress it here, before persistence.
+        if ftype == "notice_requirement" and _is_duplicate_notice_requirement(
+                rf, validated, renewal_finding):
+            continue
 
         validation_notes = []
         needs_review = False

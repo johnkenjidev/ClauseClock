@@ -434,7 +434,6 @@ export default function ContractDetail() {
           </h1>
           <p className="cc-days-remaining text-xs text-ink-soft leading-normal font-sans">
             {contract.counterparty || "No counterparty"} · {documents.length} doc{documents.length === 1 ? "" : "s"}
-            {contract.annual_value != null && <> · <span className="cc-money font-semibold text-ink text-xs">{money(contract.annual_value, contract.currency)}</span></>}
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">

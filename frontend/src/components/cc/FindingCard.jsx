@@ -507,7 +507,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                 <p className="cc-plain-english mt-2" data-testid="finding-why">{finding.why_it_matters}</p>
               </>
             )}
-            {finding.suggested_action && (
+            {finding.suggested_action && !lapsed && (
               <>
                 <p className="cc-eyebrow mt-4">Suggested action</p>
                 <p className="cc-plain-english mt-2" data-testid="finding-suggested-action">{finding.suggested_action}</p>
@@ -699,7 +699,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
             <span className="cc-eyebrow font-sans">Explanation</span>
             <p className="cc-plain-english text-xs text-ink leading-relaxed mt-1 font-sans">{finding.plain_english}</p>
             
-            {(finding.why_it_matters || finding.suggested_action) && (
+            {(finding.why_it_matters || (finding.suggested_action && !lapsed)) && (
               <div className="pt-1">
                 <button 
                   onClick={() => setExplanationOpen(!explanationOpen)} 
@@ -716,7 +716,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                         <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.why_it_matters}</p>
                       </div>
                     )}
-                    {finding.suggested_action && (
+                    {finding.suggested_action && !lapsed && (
                       <div>
                         <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider font-sans">Suggested action</span>
                         <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.suggested_action}</p>
