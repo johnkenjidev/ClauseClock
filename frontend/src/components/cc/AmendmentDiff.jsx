@@ -167,6 +167,10 @@ export function AmendmentDiffDisclosure({ oldFinding, newFinding, type, mobile =
   if (!rows.length) return null;
   const evidence = pickEvidencePair(rows, oldFinding, newFinding);
   const tid = (name) => (mobile ? `${name}-mobile` : name);
+  // A superseding finding that has already been confirmed/corrected is no
+  // longer "pending your review" — the diff is historical, so the toggle
+  // reads neutrally instead of carrying a review-required tone.
+  const reviewed = newFinding?.state !== "unconfirmed";
 
   return (
     <div className="pt-3 border-t border-rule" data-testid={tid("amendment-diff-disclosure")}>
@@ -175,7 +179,7 @@ export function AmendmentDiffDisclosure({ oldFinding, newFinding, type, mobile =
         data-testid={tid("amendment-diff-toggle")}
         className={`${BTN_TERTIARY} transition-colors ${mobile ? "text-xs" : ""}`}
       >
-        <span>Review amendment changes</span>
+        <span>{reviewed ? "Amendment changes" : "Review amendment changes"}</span>
         <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
