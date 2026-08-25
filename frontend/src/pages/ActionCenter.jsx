@@ -394,6 +394,18 @@ function ChecklistPanel({ item }) {
 
       <p className="cc-finding-title break-words whitespace-pre-wrap">{item.contract_name} — Notice checklist</p>
       <div className="cc-seal-rule mt-3 mb-5" />
+      {lapsed && (
+        <div className="mb-5 rounded-md border border-rule bg-card px-4 py-3" data-testid="lapsed-notice">
+          <p className="cc-days-remaining text-ink-soft" data-testid="lapsed-status">
+            Notice window elapsed · {Math.abs(dr)} days past deadline
+          </p>
+          {item.extracted?.next_renewal_date && (
+            <p className="cc-days-remaining text-ink-soft mt-1" data-testid="lapsed-renewal-date">
+              Contract is scheduled to renew {longDate(item.extracted.next_renewal_date)}.
+            </p>
+          )}
+        </div>
+      )}
         {!checklist ? <p className="cc-days-remaining mt-2">Loading…</p> : (
           <div className="mt-2 space-y-6">
             <div className="rounded-md border border-rule bg-card px-4 py-3 flex items-start gap-2">
