@@ -542,13 +542,6 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
 
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
-    # Remove prior renewal_notice findings for idempotent re-analysis.
-    # Stage 9: preserve reviewed findings (confirmed/corrected) so re-analysis
-    # never silently overwrites them; only clear regenerable ones.
-    await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice",
-         "state": {"$in": ["unconfirmed", "dismissed"]}})
-
     if not chunks:
         return [], []
 
@@ -687,6 +680,14 @@ async def run_renewal_analysis(db, contract: dict, user_id: str) -> tuple[list[d
         state="unconfirmed",
         anchor_version=ANCHOR_VERSION,
     )
+    # Remove prior regenerable renewal_notice findings only now that a fresh
+    # replacement is actually ready to persist — never delete upfront, or a
+    # failed/empty extraction pass would orphan a reviewed finding's
+    # superseded_by_finding_id pointer. Reviewed (confirmed/corrected)
+    # findings are never touched.
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": "renewal_notice",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)
     fd = finding.model_dump()
@@ -1033,9 +1034,6 @@ async def run_termination_analysis(db, contract: dict, user_id: str) -> tuple[li
     docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
-    await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "termination_right",
-         "state": {"$in": ["unconfirmed", "dismissed"]}})
     if not chunks:
         return [], []
 
@@ -1100,6 +1098,11 @@ async def run_termination_analysis(db, contract: dict, user_id: str) -> tuple[li
         validation_notes=validation_notes,
         state="unconfirmed",
     )
+    # Delete prior regenerable termination_right findings only now that a
+    # fresh replacement is ready — never upfront (see run_renewal_analysis).
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": "termination_right",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)
     fd = finding.model_dump()
@@ -1119,10 +1122,6 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
     docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
-    # Idempotent re-analysis.
-    await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id, "type": "price_increase",
-         "state": {"$in": ["unconfirmed", "dismissed"]}})
     if not chunks:
         return [], []
 
@@ -1211,6 +1210,11 @@ async def run_price_increase_analysis(db, contract: dict, user_id: str) -> tuple
         validation_notes=validation_notes,
         state="unconfirmed",
     )
+    # Delete prior regenerable price_increase findings only now that a fresh
+    # replacement is ready — never upfront (see run_renewal_analysis).
+    await db.findings.delete_many(
+        {"contract_id": contract_id, "user_id": user_id, "type": "price_increase",
+         "state": {"$in": ["unconfirmed", "dismissed"]}})
     result = await db.findings.insert_one(finding.to_mongo())
     finding.id = str(result.inserted_id)
     fd = finding.model_dump()
@@ -1385,11 +1389,6 @@ async def run_obligations_analysis(db, contract: dict, user_id: str,
     docs_by_id = {str(d["_id"]): {**d, "id": str(d["_id"])} for d in documents}
     chunks, chunk_map = build_chunks(list(docs_by_id.values()))
 
-    # Idempotent re-analysis; Stage 9 preserves reviewed findings.
-    await db.findings.delete_many(
-        {"contract_id": contract_id, "user_id": user_id,
-         "type": {"$in": GENERIC_TYPES},
-         "state": {"$in": ["unconfirmed", "dismissed"]}})
     if not chunks:
         return [], []
 
@@ -1410,6 +1409,7 @@ async def run_obligations_analysis(db, contract: dict, user_id: str,
 
     today = date.today()
     persisted = []
+    cleared_types = set()
     for rf in raw_findings:
         if not isinstance(rf, dict):
             continue
@@ -1472,6 +1472,14 @@ async def run_obligations_analysis(db, contract: dict, user_id: str,
             validation_notes=validation_notes,
             state="unconfirmed",
         )
+        # Delete prior regenerable findings of THIS type only now that a
+        # fresh replacement is ready to persist — never upfront, and only
+        # once per type per call (see run_renewal_analysis).
+        if ftype not in cleared_types:
+            await db.findings.delete_many(
+                {"contract_id": contract_id, "user_id": user_id, "type": ftype,
+                 "state": {"$in": ["unconfirmed", "dismissed"]}})
+            cleared_types.add(ftype)
         result = await db.findings.insert_one(finding.to_mongo())
         finding.id = str(result.inserted_id)
         fd = finding.model_dump()
