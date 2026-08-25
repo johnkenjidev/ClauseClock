@@ -20,6 +20,10 @@ export const DASHBOARD = {
   remindersDue: "dashboard-reminders-due",
   valueByContract: "dashboard-value-by-contract",
   savingsReportBtn: "dashboard-savings-report-btn",
+  needsReview: "dashboard-needs-review",
+  lapsed: "dashboard-lapsed",
+  attention: "dashboard-attention",
+  portfolio: "dashboard-portfolio",
 };
 
 export const TIMELINE = { root: "contract-timeline" };

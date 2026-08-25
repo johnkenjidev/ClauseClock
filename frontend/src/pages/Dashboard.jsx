@@ -9,7 +9,33 @@ import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/cc/Primitives";
 import { LegalFooter } from "@/components/cc/Primitives";
 import { api } from "@/lib/api";
+import { localDaysRemaining } from "@/lib/dates";
 import { DASHBOARD } from "@/constants/testIds";
+
+const TYPE_LABEL = {
+  renewal_notice: "Automatic renewal · notice required",
+  termination_right: "Termination right · notice",
+  price_increase: "Price increase · objection",
+  service_credit: "Service credit · claim",
+  invoice_dispute: "Invoice dispute · deadline",
+  warranty_claim: "Warranty claim · deadline",
+  rebate_or_refund: "Rebate / refund · claim",
+  fee_or_penalty: "Fee / penalty · deadline",
+  notice_requirement: "Notice requirement · deadline",
+};
+
+// Factual, neutral consequence line for a lapsed (already-past-deadline)
+// current confirmed finding. No negative countdown, no urgency tone.
+function lapsedConsequence(it) {
+  const e = it.extracted || {};
+  const deadlineTxt = longDate(e.effective_action_deadline);
+  if (it.type === "renewal_notice") {
+    return e.next_renewal_date
+      ? `Non-renewal window closed ${deadlineTxt} \u00b7 Contract renews ${longDate(e.next_renewal_date)}`
+      : `Non-renewal window closed ${deadlineTxt}`;
+  }
+  return `Action window closed ${deadlineTxt}`;
+}
 
 function money(amount, currency) {
   const n = Number(amount || 0);
@@ -28,13 +54,6 @@ const longDate = (iso) => {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-};
-
-const deadlineDays = (deadlineIso) => {
-  if (!deadlineIso) return 999;
-  const [y, m, d] = deadlineIso.split("-").map(Number);
-  const diffTime = new Date(y, m - 1, d) - new Date();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
 const StatCard = ({ label, value, sub, testId, tone }) => (
@@ -62,6 +81,7 @@ export default function Dashboard() {
   const [loaded, setLoaded] = useState(false);
   const [reminders, setReminders] = useState({ reminders: [], due_count: 0 });
   const [byContract, setByContract] = useState([]);
+  const [actionCenter, setActionCenter] = useState(null);
 
   useEffect(() => {
     api
@@ -71,7 +91,37 @@ export default function Dashboard() {
       .finally(() => setLoaded(true));
     api.get("/reminders").then((r) => setReminders(r.data)).catch(() => {});
     api.get("/dashboard/value-by-contract").then((r) => setByContract(r.data.contracts || [])).catch(() => {});
+    api.get("/action-center").then((r) => setActionCenter(r.data)).catch(() => setActionCenter({ buckets: {}, count: 0 }));
   }, []);
+
+  // Mobile hierarchy (Stage 30): built from the SAME current-finding /
+  // supersession relationship Action Center already exposes — never
+  // inferred from dates or deadline matching.
+  const acItems = actionCenter
+    ? [...(actionCenter.buckets?.urgent || []),
+       ...(actionCenter.buckets?.next_30_days || []),
+       ...(actionCenter.buckets?.later || [])]
+    : [];
+  const needsReviewItems = acItems.filter((it) => it.review_required);
+  const lapsedItems = acItems.filter((it) => {
+    if (it.review_required) return false;
+    const dr = localDaysRemaining(it.extracted?.effective_action_deadline);
+    if (dr == null || dr >= 0) return false;
+    const nextRenewal = it.extracted?.next_renewal_date;
+    if (nextRenewal) {
+      const rdr = localDaysRemaining(nextRenewal);
+      if (rdr != null && rdr < 0) return false; // consequence itself is past too — fully historical
+    }
+    return true;
+  });
+  const attentionItems = acItems.filter((it) => {
+    if (it.review_required) return false;
+    const dr = localDaysRemaining(it.extracted?.effective_action_deadline);
+    return dr != null && dr >= 0;
+  });
+  const meaningfulByContract = byContract.filter(
+    (c) => c.confirmed_value > 0 || c.pending_value > 0
+  );
 
   const downloadReport = async () => {
     const { data } = await api.get("/reports/savings");
@@ -289,27 +339,74 @@ export default function Dashboard() {
 
       {/* Mobile-only layout (visible only below md breakpoint) */}
       <div className="md:hidden space-y-8 animate-cc-settle">
-        <Eyebrow>Your workspace</Eyebrow>
-        <div className="cc-seal-rule mt-3 mb-5" />
 
-        {/* 1. Due/Urgent Reminder First */}
-        {reminders.due_count > 0 && (
-          <div data-testid={DASHBOARD.remindersDue} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-pending" strokeWidth={2} />
-              <span className="cc-eyebrow">Reminders due ({reminders.due_count})</span>
-            </div>
+        {/* 1. Needs your review — only a current UNCONFIRMED superseding replacement */}
+        {needsReviewItems.length > 0 && (
+          <div data-testid={DASHBOARD.needsReview} className="space-y-3">
+            <span className="cc-eyebrow">Needs your review</span>
             <ul className="space-y-2">
-              {reminders.reminders.filter((r) => r.due).map((r) => {
-                const isUrgent = deadlineDays(r.deadline) <= 14;
+              {needsReviewItems.map((it) => (
+                <li key={it.id} data-testid={`needs-review-item-${it.id}`}
+                  className="flex flex-col gap-1.5 p-4 rounded bg-card border border-rule w-full min-w-0">
+                  <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0">{it.contract_name}</span>
+                  <span className="cc-days-remaining text-xs leading-relaxed break-words text-ink-soft">
+                    Contract terms changed — review before acting.
+                  </span>
+                  <button
+                    onClick={() => navigate(`/app/contracts/${it.contract_id}`)}
+                    data-testid={`needs-review-link-${it.id}`}
+                    className="cc-eyebrow text-seal hover:text-seal/85 mt-1 font-semibold self-start"
+                  >
+                    Review changes →
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 2. Lapsed — current confirmed deadlines already passed, factual/neutral */}
+        {lapsedItems.length > 0 && (
+          <div data-testid={DASHBOARD.lapsed} className="space-y-3">
+            <span className="cc-eyebrow">Lapsed</span>
+            <ul className="space-y-2">
+              {lapsedItems.map((it) => (
+                <li key={it.id} data-testid={`lapsed-item-${it.id}`}
+                  className="flex flex-col gap-1.5 p-4 rounded bg-card border border-rule w-full min-w-0">
+                  <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0">{it.contract_name}</span>
+                  <span className="cc-days-remaining text-xs leading-relaxed break-words text-ink-soft">
+                    {lapsedConsequence(it)}
+                  </span>
+                  <button
+                    onClick={() => navigate(`/app/contracts/${it.contract_id}`)}
+                    data-testid={`lapsed-view-contract-${it.id}`}
+                    className="cc-eyebrow text-ink-soft hover:text-ink mt-1 font-semibold self-start"
+                  >
+                    View contract →
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 3. Attention — current live actionable deadlines only */}
+        {attentionItems.length > 0 && (
+          <div data-testid={DASHBOARD.attention} className="space-y-3">
+            <span className="cc-eyebrow">Attention</span>
+            <ul className="space-y-2">
+              {attentionItems.map((it) => {
+                const dr = localDaysRemaining(it.extracted?.effective_action_deadline);
+                const urgent = dr != null && dr < 14;
                 return (
-                  <li key={r.id}
-                    onClick={() => navigate(`/app/contracts/${r.contract_id}`)}
+                  <li key={it.id}
+                    onClick={() => navigate("/app/action-center")}
+                    data-testid={`attention-item-${it.id}`}
                     className="flex flex-col gap-1.5 p-4 rounded bg-card border border-rule cursor-pointer hover:bg-card/70 w-full min-w-0"
                   >
-                    <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0">{r.contract_name || "Contract"}</span>
-                    <span className={"cc-days-remaining text-xs leading-relaxed break-words shrink-0 " + (isUrgent ? "text-stamp font-medium" : "text-ink-soft")}>
-                      deadline {longDate(r.deadline)} · reminder set {r.days_before}d before
+                    <span className="font-archivo font-semibold text-ink text-sm break-words min-w-0">{it.contract_name}</span>
+                    <span className={"cc-days-remaining text-xs leading-relaxed break-words " + (urgent ? "text-stamp font-medium" : "text-ink-soft")}>
+                      {TYPE_LABEL[it.type] || "Action required"} · deadline {longDate(it.extracted?.effective_action_deadline)} · {dr} days
                     </span>
                   </li>
                 );
@@ -318,69 +415,58 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 2. Compact Watch Summary (metrics on the ground, no bordered cards) */}
-        <div data-testid={DASHBOARD.metrics} className="grid grid-cols-2 gap-x-6 gap-y-5 py-4 border-t border-b border-rule">
-          <div data-testid={DASHBOARD.contractsMonitored}>
-            <span className="cc-eyebrow">Monitored</span>
-            <p className="font-archivo font-bold text-ink text-xl mt-1">
-              {summary.contracts_monitored} {summary.contracts_monitored === 1 ? "contract" : "contracts"}
+        {/* 4. Portfolio — one compact line on the ground */}
+        <div data-testid={DASHBOARD.portfolio} className="py-3 border-t border-b border-rule space-y-1">
+          <p className="cc-days-remaining text-ink text-sm" data-testid={DASHBOARD.contractsMonitored}>
+            {summary.contracts_monitored} {summary.contracts_monitored === 1 ? "contract" : "contracts"} · {money(summary.value_under_tracking, cur)} tracked
+          </p>
+          {summary.pending_value > 0 && (
+            <p className="cc-days-remaining text-xs text-ink-soft" data-testid={DASHBOARD.pendingValue}>
+              {money(summary.pending_value, cur)} pending confirmation
             </p>
-          </div>
-          <div data-testid={DASHBOARD.valueUnderTracking}>
-            <span className="cc-eyebrow">Value tracked</span>
-            <p className="font-archivo font-bold text-ink text-xl mt-1">{money(summary.value_under_tracking, cur)}</p>
-            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Annual contract value</p>
-          </div>
-          <div data-testid={DASHBOARD.pendingValue}>
-            <span className="cc-eyebrow">Pending</span>
-            <p className="font-archivo font-bold text-ink text-xl mt-1">{money(summary.pending_value, cur)}</p>
-            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Awaiting confirmation</p>
-          </div>
-          <div data-testid={DASHBOARD.windowsMissed}>
-            <span className="cc-eyebrow">Missed</span>
-            <p className="font-archivo font-bold text-ink text-xl mt-1">{summary.windows_missed}</p>
-            <p className="cc-days-remaining text-[10px] text-ink-soft mt-0.5">Windows missed</p>
-          </div>
+          )}
+          {summary.windows_missed > 0 && (
+            <p className="cc-days-remaining text-xs text-ink-soft" data-testid={DASHBOARD.windowsMissed}>
+              {summary.windows_missed} window{summary.windows_missed === 1 ? "" : "s"} missed
+            </p>
+          )}
         </div>
 
-        {/* 3. Confirmed Outcomes (with Savings Report as secondary) */}
+        {/* 5. Outcomes & protections */}
         <div data-testid={DASHBOARD.confirmedValueProtected} className="space-y-3">
-          <span className="cc-eyebrow">Outcomes &amp; Protections</span>
+          <span className="cc-eyebrow">Outcomes &amp; protections</span>
           {summary.confirmed_value_protected === 0 ? (
-            <p className="cc-days-remaining text-ink-soft text-sm italic">
-              $0 confirmed value protected &amp; recovered
-            </p>
+            <p className="cc-days-remaining text-ink-soft text-sm italic">No confirmed outcomes yet.</p>
           ) : (
             <div className="flex flex-col gap-1 bg-card/40 p-4 border border-rule rounded-sm">
               <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider">Confirmed value protected &amp; recovered</span>
               <p className="font-archivo font-black text-ink text-2xl mt-1">
                 {money(summary.confirmed_value_protected, cur)}
               </p>
-              <p className="cc-days-remaining text-xs mt-1 text-ink-soft leading-relaxed">
-                From confirmed outcomes. {summary.pending_value > 0 ? `${money(summary.pending_value, cur)} pending.` : ""}
-              </p>
             </div>
           )}
-          <div className="pt-1">
-            <button 
-              data-testid={DASHBOARD.savingsReportBtn}
-              onClick={downloadReport} 
-              className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-9 px-4 inline-flex items-center gap-1.5 bg-transparent cursor-pointer text-xs font-sans font-semibold transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" /> Download Savings Report
-            </button>
-          </div>
+          {(summary.confirmed_value_protected > 0 || summary.pending_value > 0) && (
+            <div className="pt-1">
+              <button
+                data-testid={DASHBOARD.savingsReportBtn}
+                onClick={downloadReport}
+                className="border border-rule text-ink-soft hover:text-ink hover:border-ink-soft hover:bg-card rounded-full h-9 px-4 inline-flex items-center gap-1.5 bg-transparent cursor-pointer text-xs font-sans font-semibold transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> Savings report
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 4. Value By Contract (compact, hidden if zero rows) */}
-        {byContract.length > 0 && (
+        {/* 6. Value by contract — compact rows, meaningful/non-zero only */}
+        {meaningfulByContract.length > 0 && (
           <div data-testid={DASHBOARD.valueByContract} className="space-y-3">
             <span className="cc-eyebrow">Value by contract</span>
             <div className="cc-seal-rule mt-2 mb-3" />
             <div className="border border-rule divide-y divide-rule bg-card rounded overflow-hidden">
-              {byContract.map((c) => (
-                <div 
-                  key={c.contract_id} 
+              {meaningfulByContract.map((c) => (
+                <div
+                  key={c.contract_id}
                   onClick={() => navigate(`/app/contracts/${c.contract_id}`)}
                   className="p-4 flex flex-col gap-2 cursor-pointer hover:bg-card/70"
                   data-testid={`value-row-${c.contract_id}`}
@@ -398,23 +484,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        {/* CTAs */}
-        <div className="flex flex-col gap-3 pt-4">
-          <Button
-            onClick={() => navigate("/app/upload")}
-            className="w-full bg-seal text-paper hover:bg-seal/90 rounded-full h-11 px-6 font-semibold"
-          >
-            Add a contract
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/app/action-center")}
-            className="w-full rounded-full h-11 px-6 border-rule text-ink hover:text-ink hover:bg-card font-semibold"
-          >
-            Go to Action Center
-          </Button>
-        </div>
       </div>
     </div>
   );

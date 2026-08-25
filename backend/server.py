@@ -1311,7 +1311,11 @@ async def delete_reminder(reminder_id: str, user_id: str = Depends(current_user_
 async def list_reminders(user_id: str = Depends(current_user_id)):
     """All reminders for the user, each marked `due` when its fire_date has
     arrived and it has not been sent. No background scheduler — reminders are
-    surfaced in-app on request (the simplest reliable approach)."""
+    surfaced in-app on request (the simplest reliable approach). A reminder
+    tied to a finding that has since been superseded (a newer replacement
+    exists) is preserved in the list for history, but is never marked `due`
+    — currentness is read directly from the finding's own
+    `superseded_by_finding_id`, never inferred from dates."""
     from models import Finding, Reminder
     today = date.today().isoformat()
     items = []
@@ -1325,8 +1329,10 @@ async def list_reminders(user_id: str = Depends(current_user_id)):
         contract = await db.contracts.find_one(
             {"_id": ObjectId(f.contract_id), "user_id": user_id})
         deadline = (f.extracted or {}).get("effective_action_deadline")
-        rem["due"] = (rem["fire_date"] <= today and not rem.get("sent")
+        is_current = not fdoc.get("superseded_by_finding_id")
+        rem["due"] = (is_current and rem["fire_date"] <= today and not rem.get("sent")
                       and (not deadline or deadline >= today))
+        rem["is_current"] = is_current
         rem["contract_id"] = f.contract_id
         rem["contract_name"] = contract.get("name") if contract else None
         rem["finding_type"] = f.type
