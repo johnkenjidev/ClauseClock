@@ -179,16 +179,7 @@ const RANK_LABEL = {
   opportunity: "Opportunity", informational: "Informational",
 };
 
-const localDaysRemaining = (deadlineIso) => {
-  if (!deadlineIso) return null;
-  const [y, m, d] = deadlineIso.split("-").map(Number);
-  const deadlineDate = new Date(y, m - 1, d);
-  deadlineDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffTime = deadlineDate - today;
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
+import { localDaysRemaining } from "@/lib/dates";
 
 export function FindingCard({ finding, onChanged, readOnly = false, supersededRecord = null }) {
   const [open, setOpen] = useState(false);

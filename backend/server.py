@@ -988,11 +988,26 @@ async def action_center(user_id: str = Depends(current_user_id)):
             {"type": "renewal_notice"},
             {"type": {"$in": analysis.GENERIC_TYPES + ["termination_right", "price_increase"]},
              "validation_status": "validated",
-             "superseded_by_finding_id": None,
              "extracted.effective_action_deadline": {"$ne": None}},
         ],
     }):
         fd = Finding.from_mongo(f).model_dump()
+
+        # Supersession safety: a confirmed finding pointing at a current
+        # UNCONFIRMED replacement is stale — surface it as review-required
+        # instead of actionable, rather than excluding it silently. If the
+        # replacement has itself already been confirmed/corrected, this old
+        # finding is fully resolved (the replacement is its own entry below).
+        rep_id = fd.get("superseded_by_finding_id")
+        if rep_id:
+            rep_doc = await db.findings.find_one(
+                {"_id": ObjectId(str(rep_id)), "user_id": user_id})
+            rep_state = rep_doc.get("state") if rep_doc else None
+            if rep_state in ("confirmed", "corrected"):
+                continue
+            fd["review_required"] = True
+            fd["replacement_finding_id"] = str(rep_id)
+
         fd = analysis.apply_ranking([fd])[0]
         contract = await db.contracts.find_one(
             {"_id": ObjectId(fd["contract_id"]), "user_id": user_id})

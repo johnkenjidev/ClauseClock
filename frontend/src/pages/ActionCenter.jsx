@@ -3,6 +3,7 @@
 // contract sources, and can generate a grounded non-renewal draft. ClauseClock
 // does NOT send anything; the user must verify and send it themselves.
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { FileText, AlertTriangle, ChevronDown, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { localDaysRemaining } from "@/lib/dates";
 import { Eyebrow, BTN_TERTIARY } from "@/components/cc/Primitives";
 import { ACTION_CENTER } from "@/constants/testIds";
 
@@ -254,6 +256,7 @@ const getUniqueSources = (sources) => {
 };
 
 function ChecklistPanel({ item }) {
+  const navigate = useNavigate();
   const [checklist, setChecklist] = useState(null);
   const [draft, setDraft] = useState(null);
   const [drafting, setDrafting] = useState(false);
@@ -283,8 +286,29 @@ function ChecklistPanel({ item }) {
     </div>
   );
 
-  const dr = item.extracted?.days_remaining;
+  if (item.review_required) {
+    return (
+      <div data-testid="checklist-panel-review-required" className="pb-8">
+        <p className="cc-finding-title break-words whitespace-pre-wrap">{item.contract_name} — {TYPE_LABEL[item.type] || "Action required"}</p>
+        <div className="cc-seal-rule mt-3 mb-5" />
+        <div className="rounded-md border border-rule bg-card px-4 py-3 flex items-start gap-2" data-testid="review-required-notice">
+          <AlertTriangle className="h-4 w-4 text-pending mt-0.5 shrink-0" />
+          <p className="cc-days-remaining text-ink">Contract terms changed — review the updated finding before acting.</p>
+        </div>
+        <button
+          onClick={() => navigate(`/app/contracts/${item.contract_id}`)}
+          data-testid="review-changes-link"
+          className={`${BTN_TERTIARY} mt-4`}
+        >
+          <span>Review changes</span>
+        </button>
+      </div>
+    );
+  }
+
+  const dr = localDaysRemaining(item.extracted?.effective_action_deadline);
   const urgent = dr != null && dr >= 0 && dr <= 14;
+  const lapsed = dr != null && dr < 0;
 
   // Obligation finding types — reuse the same action workflow (log action,
   // record outcome, evidence) grounded in the finding's validated sources.
@@ -424,19 +448,23 @@ function ChecklistPanel({ item }) {
             </div>
 
             <div className="pt-2 border-t border-rule">
-              <Button onClick={generate} disabled={drafting} data-testid="generate-draft-btn"
-                className="bg-seal text-paper hover:bg-seal/90 rounded-full h-10 px-5 font-semibold">
-                {drafting ? "Drafting…" : "Generate non-renewal draft"}
-              </Button>
+              {!lapsed && (
+                <>
+                  <Button onClick={generate} disabled={drafting} data-testid="generate-draft-btn"
+                    className="bg-seal text-paper hover:bg-seal/90 rounded-full h-10 px-5 font-semibold">
+                    {drafting ? "Drafting…" : "Generate non-renewal draft"}
+                  </Button>
 
-              {draft && (
-                <div className="mt-4" data-testid="notice-draft">
-                  <div className="rounded-md border border-rule bg-card px-4 py-3 mb-3 flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-pending mt-0.5" />
-                    <p className="cc-days-remaining text-ink" data-testid="draft-disclaimer">{draft.disclaimer}</p>
-                  </div>
-                  <pre className="font-mono text-[13px] leading-[1.75] text-ink bg-card border border-rule rounded-md p-4 whitespace-pre-wrap" data-testid="draft-text">{draft.draft}</pre>
-                </div>
+                  {draft && (
+                    <div className="mt-4" data-testid="notice-draft">
+                      <div className="rounded-md border border-rule bg-card px-4 py-3 mb-3 flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-pending mt-0.5" />
+                        <p className="cc-days-remaining text-ink" data-testid="draft-disclaimer">{draft.disclaimer}</p>
+                      </div>
+                      <pre className="font-mono text-[13px] leading-[1.75] text-ink bg-card border border-rule rounded-md p-4 whitespace-pre-wrap" data-testid="draft-text">{draft.draft}</pre>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -493,15 +521,18 @@ export default function ActionCenter() {
                   <ul className="mt-3 space-y-1">
                     {items.map((it) => {
                       const sel = active?.id === it.id;
-                      const dr = it.extracted?.days_remaining;
-                      const urgent = dr != null && dr >= 0 && dr <= 14;
+                      const dr = localDaysRemaining(it.extracted?.effective_action_deadline);
+                      const reviewRequired = !!it.review_required;
+                      const urgent = !reviewRequired && dr != null && dr >= 0 && dr <= 14;
                       return (
                         <li key={it.id}>
                           <button data-testid={`action-item-${it.id}`} onClick={() => setActive(it)}
                             className={`w-full rounded-md px-3 py-3 text-left transition-colors flex items-start gap-3 border ${sel ? "bg-card border-rule" : "border-transparent hover:bg-card"}`}>
                             <div className="w-16 shrink-0">
                               <p className={`text-[15px] font-semibold leading-none ${urgent ? "text-stamp" : ""}`}>{shortDate(it.extracted?.effective_action_deadline)}</p>
-                              <p className={`text-[11.5px] mt-1 ${urgent ? "text-stamp" : "text-ink-soft"}`}>{dr != null ? `${dr} days` : "no date"}</p>
+                              <p className={`text-[11.5px] mt-1 ${urgent ? "text-stamp" : "text-ink-soft"}`} data-testid={reviewRequired ? `review-needed-label-${it.id}` : undefined}>
+                                {reviewRequired ? "Review needed" : (dr != null ? `${dr} days` : "no date")}
+                              </p>
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-[14px] font-semibold truncate">{it.contract_name}</p>
