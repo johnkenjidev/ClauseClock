@@ -5,7 +5,7 @@ import time
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://finding-amendments.preview.emergentagent.com").rstrip("/")
+                          "https://clock-continue.preview.emergentagent.com").rstrip("/")
 EMAIL = "test@clauseclock.app"
 PASSWORD = "Test1234!"
 CONTRACT_ID = "6a8c968f38ffe86939d74f51"

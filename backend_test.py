@@ -10,7 +10,7 @@ import requests
 from io import BytesIO
 
 # Get backend URL from environment
-BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://finding-amendments.preview.emergentagent.com")
+BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://clock-continue.preview.emergentagent.com")
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials from test_credentials.md
