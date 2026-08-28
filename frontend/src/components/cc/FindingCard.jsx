@@ -222,7 +222,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
   for (const p of Object.keys(grouped)) {
     const seen = new Set();
     grouped[p] = grouped[p].filter((s) => {
-      const key = `${(s.quote || "").trim()}|${s.location || ""}`;
+      const key = `${(s.quote || "").trim()}|${String(s.document_id || "")}|${s.location || ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
