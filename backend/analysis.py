@@ -1251,8 +1251,9 @@ OBLIGATION_HINT = re.compile(
 GENERIC_EDITABLE_FIELDS = [
     "who", "amount", "amount_percent", "rate_text",
     "window_value", "window_unit", "window_basis", "window_reference",
-    "trigger_date", "deadline_stated",
+    "trigger_date", "deadline_stated", "timing_effect",
 ]
+_FEE_TIMING_EFFECTS = ("deadline", "restriction_lifts", "unknown")
 
 
 def compute_generic(extracted: dict, ftype: str, today: date):
@@ -1264,6 +1265,12 @@ def compute_generic(extracted: dict, ftype: str, today: date):
       - relative window + a known trigger_date -> compute trigger + window;
       - relative window with no verified trigger date -> preserve the rule and
         mark timing needs_review (no invented date).
+
+    Stage 10A — fee_or_penalty timing polarity: timing_effect (deadline |
+    restriction_lifts | unknown) tags what crossing the resolved boundary
+    date means, WITHOUT changing how that date is computed. Legacy records
+    and every other generic type (timing_effect absent/None) keep the
+    original "deadline" behavior unchanged.
 
     Returns (computed, notes, needs_review, money_amount, money_kind, action_required).
     """
@@ -1281,6 +1288,7 @@ def compute_generic(extracted: dict, ftype: str, today: date):
     wu = extracted.get("window_unit")
     stated = extracted.get("deadline_stated")
     trigger = extracted.get("trigger_date")
+    timing_effect = extracted.get("timing_effect") if ftype == "fee_or_penalty" else None
 
     deadline_date = None
     if stated:
@@ -1298,10 +1306,22 @@ def compute_generic(extracted: dict, ftype: str, today: date):
             deadline_date = None
 
     action_required = False
-    if deadline_date is not None:
+    if timing_effect == "unknown":
+        # Timing is resolved to a date, but whether crossing it removes or
+        # imposes risk is not — never surface a deadline under ambiguous
+        # polarity; treat exactly like unresolved timing.
+        needs_review = True
+        notes.append(
+            "Whether this fee/penalty is avoided by acting before this date "
+            "or only applies until it is not stated. Add that before this "
+            "timing is tracked.")
+    elif deadline_date is not None:
         out["effective_action_deadline"] = deadline_date.isoformat()
         out["days_remaining"] = (deadline_date - today).days
-        action_required = True
+        # restriction_lifts: cost/risk ENDS at the boundary — nothing to act
+        # on, never actionable. Absent (legacy/other types) or "deadline":
+        # unchanged existing must-act-before-date behavior.
+        action_required = timing_effect != "restriction_lifts"
     elif wv and wu:
         needs_review = True
         ref = extracted.get("window_reference")
@@ -1416,6 +1436,12 @@ async def run_obligations_analysis(db, contract: dict, user_id: str,
         ftype = rf.get("finding_type")
         if ftype not in GENERIC_TYPES:
             continue
+        # Stage 10A: fresh fee_or_penalty extractions MUST state an explicit
+        # timing_effect. A missing/invalid value from the model is a genuine
+        # extraction gap — never silently default it to "deadline" (which
+        # would risk false Action Center urgency); treat it as unresolved.
+        if ftype == "fee_or_penalty" and rf.get("timing_effect") not in _FEE_TIMING_EFFECTS:
+            rf["timing_effect"] = "unknown"
 
         validated, valid_purposes = validate_sources(
             rf.get("sources", []), chunk_map, docs_by_id)

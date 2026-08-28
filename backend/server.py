@@ -745,6 +745,7 @@ class GenericCorrectionInput(BaseModel):
     window_reference: Optional[str] = None
     trigger_date: Optional[str] = None
     deadline_stated: Optional[str] = None
+    timing_effect: Optional[str] = None
 
     @field_validator("who")
     @classmethod
@@ -765,6 +766,13 @@ class GenericCorrectionInput(BaseModel):
     def _valid_g_basis(cls, v):
         if v not in (None, "calendar", "business"):
             raise ValueError("invalid window_basis")
+        return v
+
+    @field_validator("timing_effect")
+    @classmethod
+    def _valid_g_timing_effect(cls, v):
+        if v not in (None, "deadline", "restriction_lifts", "unknown"):
+            raise ValueError("invalid timing_effect")
         return v
 
     @field_validator("amount", "amount_percent")

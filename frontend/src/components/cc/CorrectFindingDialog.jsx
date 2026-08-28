@@ -50,7 +50,7 @@ const TERM_FIELDS = [
 const GENERIC_FIELDS = [
   "who", "amount", "amount_percent", "rate_text",
   "window_value", "window_unit", "window_basis", "window_reference",
-  "trigger_date", "deadline_stated",
+  "trigger_date", "deadline_stated", "timing_effect",
 ];
 
 const emptyToNull = (v) => (v === "" || v === undefined ? null : v);
@@ -59,6 +59,7 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
   const isPrice = finding.type === "price_increase";
   const isTermination = finding.type === "termination_right";
   const isGeneric = GENERIC_TYPES.includes(finding.type);
+  const isFee = finding.type === "fee_or_penalty";
   const fields = isPrice ? PRICE_FIELDS : isTermination ? TERM_FIELDS : isGeneric ? GENERIC_FIELDS : RENEWAL_FIELDS;
   const e = finding.extracted || {};
   const init = {};
@@ -172,6 +173,15 @@ export function CorrectFindingDialog({ finding, open, onOpenChange, onSaved }) {
               <Txt k="window_reference" label="Measured from" ph="the invoice date" />
               <Txt k="trigger_date" label="Trigger date (YYYY-MM-DD)" ph="optional — enables deadline" />
               <Txt k="deadline_stated" label="Explicit deadline (YYYY-MM-DD)" ph="optional" />
+              {isFee && (
+                <>
+                  <Sel k="timing_effect" label="Timing effect"
+                    options={["deadline", "restriction_lifts", "unknown"]} />
+                  <p className="sm:col-span-2 cc-days-remaining text-ink-soft -mt-1" data-testid="timing-effect-help">
+                    "deadline" — must act before this date to avoid the fee. "restriction_lifts" — the fee/risk ends at this date; nothing to do. "unknown" — polarity not stated; kept out of Action Center until resolved.
+                  </p>
+                </>
+              )}
             </>
           ) : (
             <>

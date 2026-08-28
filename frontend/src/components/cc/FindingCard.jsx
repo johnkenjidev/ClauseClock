@@ -195,13 +195,19 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
   const needsReview = finding.validation_status === "needs_review";
   const dr = localDaysRemaining(e.effective_action_deadline);
   const lapsed = dr != null && dr < 0;
+  // Stage 10A: a fee_or_penalty whose cost/risk simply ENDS at the boundary
+  // date (nothing to act on) — always neutral, never treated as an
+  // act-before deadline or Action Center urgency.
+  const isRestrictionLift = finding.type === "fee_or_penalty" && e.timing_effect === "restriction_lifts";
   const t = needsReview
     ? "pending"
-    : (dr != null && dr >= 0 && dr <= 14 && finding.action_required)
-      ? "stamp"
-      : (dr != null && dr >= 0 && dr <= 60)
-        ? "pending"
-        : "neutral";
+    : isRestrictionLift
+      ? "neutral"
+      : (dr != null && dr >= 0 && dr <= 14 && finding.action_required)
+        ? "stamp"
+        : (dr != null && dr >= 0 && dr <= 60)
+          ? "pending"
+          : "neutral";
   const badge = STATE_BADGE[finding.state];
 
   const act = async (verb) => {
@@ -222,7 +228,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
   for (const p of Object.keys(grouped)) {
     const seen = new Set();
     grouped[p] = grouped[p].filter((s) => {
-      const key = `${(s.quote || "").trim()}|${s.location || ""}`;
+      const key = `${(s.quote || "").trim()}|${String(s.document_id || "")}|${s.location || ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -292,6 +298,17 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                 </p>
                 <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-generic-subhead">
                   {genericSubhead(finding)}
+                </p>
+              </>
+            ) : isRestrictionLift ? (
+              <>
+                <p className={`cc-hero-date mt-3 ${TONE_TEXT[t]}`} data-testid="finding-restriction-lift-headline">
+                  RESTRICTION LIFTS
+                </p>
+                <p className="cc-days-remaining mt-2 max-w-md" data-testid="finding-restriction-lift-subhead">
+                  {lapsed
+                    ? `This restriction lifted ${longDate(heroIso)}. No fee applies now.`
+                    : `Cost/risk ends ${longDate(heroIso)}. No action required.`}
                 </p>
               </>
             ) : (
@@ -452,7 +469,8 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
               <Fact label="Measured from" value={e.window_reference} testid="finding-generic-reference" />
             )}
             {!needsReview && e.effective_action_deadline && (
-              <Fact label="Deadline" value={longDate(e.effective_action_deadline)} testid="finding-generic-deadline" />
+              <Fact label={isRestrictionLift ? "Restriction lifts" : "Deadline"}
+                value={longDate(e.effective_action_deadline)} testid="finding-generic-deadline" />
             )}
           </dl>
         ) : (
@@ -533,7 +551,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
             </Button>
           ) : (finding.action_required && (dr === null || dr >= 0)) ? (
             <Button size="sm" data-testid="finding-prepare-notice-btn"
-              onClick={() => navigate("/app/action-center")}
+              onClick={() => navigate("/app/actions")}
               className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5 font-semibold">
               <Check className="h-4 w-4" strokeWidth={2.5} /> Prepare notice
             </Button>
@@ -630,6 +648,15 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
               <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-generic-headline-mobile">{(GENERIC_LABEL[finding.type] || "Obligation").toUpperCase()}</p>
               <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-generic-subhead-mobile">{genericSubhead(finding)}</p>
             </>
+          ) : isRestrictionLift ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-restriction-lift-headline-mobile">RESTRICTION LIFTS</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-restriction-lift-subhead-mobile">
+                {lapsed
+                  ? `This restriction lifted ${longDate(heroIso)}. No fee applies now.`
+                  : `Cost/risk ends ${longDate(heroIso)}. No action required.`}
+              </p>
+            </>
           ) : (
             <>
               <p className="text-lg font-sans font-bold text-ink" data-testid="finding-hero-date-mobile">{heroDate(heroIso) || "—"}</p>
@@ -657,7 +684,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                   Confirm deadline
                 </Button>
               ) : (finding.action_required && (dr === null || dr >= 0)) ? (
-                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/action-center")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/actions")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Prepare notice
                 </Button>
               ) : (
