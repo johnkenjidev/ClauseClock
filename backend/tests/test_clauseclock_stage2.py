@@ -197,11 +197,11 @@ class TestHappyPath:
         assert e["effective_action_deadline"] is not None
         assert isinstance(e["days_remaining"], int)
 
-        # date math: action_deadline = next_renewal - 60 days (calendar)
+        # date math: action_deadline = next_renewal - 60 days (calendar) - 1 day (term_end anchor)
         from datetime import date, timedelta
         nr = date.fromisoformat(e["next_renewal_date"])
         ad = date.fromisoformat(e["action_deadline"])
-        assert (nr - ad).days == 60
+        assert (nr - ad).days == 61
 
         # required-purpose sources present + validated
         purposes = {s["purpose"] for s in f["sources"]}
@@ -276,9 +276,11 @@ class TestMissingNoticeDays:
         cid = _create_contract(sess, "TEST_stage2_nonotice", NO_NOTICE_DAYS_TEXT)
         created.append(cid)
         findings = _analyze(sess, cid)
-        if not findings:
-            pytest.skip("model returned no finding at all")
-        f = findings[0]
+        # Filter for renewal_notice type findings for this Stage 2 assertion
+        renewal_findings = [f for f in findings if f["type"] == "renewal_notice"]
+        if not renewal_findings:
+            pytest.skip("model returned no renewal finding at all")
+        f = renewal_findings[0]
         assert f["validation_status"] == "needs_review", (
             f["validation_status"], f["validation_notes"])
         e = f["extracted"]

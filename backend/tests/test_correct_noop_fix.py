@@ -17,7 +17,7 @@ import requests
 from bson import ObjectId
 from pymongo import MongoClient
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://renewal-hub-86.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://contract-tracker-74.preview.emergentagent.com").rstrip("/")
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 
@@ -29,7 +29,7 @@ EDITABLE = [
     "renewal_period_value", "renewal_period_unit", "notice_days_min",
     "notice_days_max", "notice_basis", "business_day_definition",
     "notice_measured_to", "deemed_receipt_rule", "notice_method",
-    "notice_recipient",
+    "notice_recipient", "notice_anchor_type",
 ]
 
 
@@ -107,6 +107,7 @@ NULL_EXTRACTED = {
     "earliest_action_date": None,
     "effective_action_deadline": None,
     "days_remaining": None,
+    "notice_anchor_type": "renewal_start",
 }
 
 
@@ -142,6 +143,7 @@ def test_no_change_correct_is_true_noop(user):
         "earliest_action_date": None,
         "effective_action_deadline": "2026-12-02",
         "days_remaining": 365,
+        "notice_anchor_type": "renewal_start",
     }
     fid = _seed_finding(uid, cid, extracted, state="unconfirmed",
                         validation_status="validated")
@@ -200,6 +202,7 @@ def test_no_change_correct_does_not_move_accuracy():
             "earliest_action_date": None,
             "effective_action_deadline": "2026-12-02",
             "days_remaining": 365,
+            "notice_anchor_type": "renewal_start",
         }
         fid = _seed_finding(uid, cid, extracted, state="unconfirmed",
                             validation_status="validated")
@@ -250,6 +253,7 @@ def test_real_correction_updates_state_and_accuracy():
             "notice_basis": "calendar", "business_day_definition": None,
             "notice_measured_to": "sent", "deemed_receipt_rule": None,
             "notice_method": "written", "notice_recipient": "Counterparty",
+            "notice_anchor_type": "renewal_start",
         }
         r = s.post(f"{BASE_URL}/api/findings/{fid}/correct", json=payload, timeout=15)
         assert r.status_code == 200, r.text

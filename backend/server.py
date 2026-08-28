@@ -905,7 +905,8 @@ async def correct_finding(finding_id: str, body: dict = Body(default={}),
             editable = analysis.EDITABLE_FIELDS
             recomputed = analysis.recompute_derived(edits)
     except ValidationError as e:
-        raise HTTPException(status_code=422, detail=e.errors())
+        import json
+        raise HTTPException(status_code=422, detail=json.loads(e.json()))
 
     # Record only fields that actually changed.
     changed = [k for k in editable if edits.get(k) != prev.get(k)]

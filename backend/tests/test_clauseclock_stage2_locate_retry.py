@@ -178,11 +178,14 @@ class TestHighRecallLocateFallback:
                 "deemed_receipt_rule": None,
                 "notice_method": None, "notice_recipient": None,
                 "annual_value": None,
+                "notice_anchor_type": "renewal_start",
                 "sources": [
                     {"purpose": "renewal_term", "chunk_id": cid0,
                      "quote": "shall automatically renew for successive one-year terms"},
                     {"purpose": "notice_period", "chunk_id": cid0,
                      "quote": "at least sixty (60) days prior to the end of the then-current term"},
+                    {"purpose": "notice_anchor", "chunk_id": cid0,
+                     "quote": "at least sixty (60) days"},
                 ],
                 "confidence": "high",
             }
@@ -226,11 +229,14 @@ class TestOneRetryOnFoundFalse:
                 "deemed_receipt_rule": None,
                 "notice_method": None, "notice_recipient": None,
                 "annual_value": None,
+                "notice_anchor_type": "renewal_start",
                 "sources": [
                     {"purpose": "renewal_term", "chunk_id": cid0,
                      "quote": "shall automatically renew for successive one-year terms"},
                     {"purpose": "notice_period", "chunk_id": cid0,
                      "quote": "at least sixty (60) days prior to the end of the then-current term"},
+                    {"purpose": "notice_anchor", "chunk_id": cid0,
+                     "quote": "at least sixty (60) days"},
                 ],
                 "confidence": "high",
             }
@@ -297,11 +303,14 @@ class TestProvenanceIntegrity:
                 "deemed_receipt_rule": None,
                 "notice_method": None, "notice_recipient": None,
                 "annual_value": None,
+                "notice_anchor_type": "renewal_start",
                 "sources": [
                     {"purpose": "renewal_term", "chunk_id": cid0,
                      "quote": "shall automatically renew for successive one-year terms"},
                     {"purpose": "notice_period", "chunk_id": cid0,
                      "quote": "at least sixty (60) days prior to the end of the then-current term"},
+                    {"purpose": "notice_anchor", "chunk_id": cid0,
+                     "quote": "at least sixty (60) days"},
                 ],
                 "confidence": "high",
             }

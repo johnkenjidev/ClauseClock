@@ -340,8 +340,10 @@ class TestMultiPurposeSources:
 
         findings, warnings = _analyze(sess, cid)
         assert warnings == [], f"unexpected warnings: {warnings}"
-        assert len(findings) == 1, f"expected 1 finding, got {len(findings)}"
-        f = findings[0]
+        # Filter for renewal_notice type findings for this assertion
+        renewal_findings = [f for f in findings if f["type"] == "renewal_notice"]
+        assert len(renewal_findings) == 1, f"expected 1 renewal finding, got {len(renewal_findings)}"
+        f = renewal_findings[0]
 
         # Both required purposes must be present as validated sources.
         purposes = [s["purpose"] for s in f["sources"]]
@@ -378,7 +380,7 @@ class TestMultiPurposeSources:
         assert e["action_deadline"] is not None
         nr = date.fromisoformat(e["next_renewal_date"])
         ad = date.fromisoformat(e["action_deadline"])
-        assert (nr - ad).days == 60
+        assert (nr - ad).days == 61
 
 
 # ====================================================================
@@ -391,16 +393,19 @@ class TestGatingPreserved:
 
         findings, warnings = _analyze(sess, cid)
 
+        # Filter for renewal_notice type findings for this assertion
+        renewal_findings = [f for f in findings if f["type"] == "renewal_notice"]
+
         # Two acceptable outcomes: either (a) no finding at all (model
         # correctly returned found=false because no renewal language), or
         # (b) a needs_review finding because required-purpose gate blocked
         # validation. NEVER: a validated finding with an invented renewal_term.
-        if not findings:
+        if not renewal_findings:
             # (a) acceptable — no renewal language → no finding
             return
 
-        assert len(findings) == 1
-        f = findings[0]
+        assert len(renewal_findings) == 1
+        f = renewal_findings[0]
 
         # renewal_term must NOT have been fabricated from keywords.
         # If it's present as a validated source we insist the QUOTE is

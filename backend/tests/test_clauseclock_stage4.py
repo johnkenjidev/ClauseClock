@@ -69,6 +69,7 @@ def _seed_finding(user_id, contract_id, extracted=None, sources=None,
             "next_renewal_date": None, "action_deadline": None,
             "earliest_action_date": None, "effective_action_deadline": None,
             "days_remaining": None,
+            "notice_anchor_type": "renewal_start",
         },
         "sources": sources or [{
             "purpose": "renewal_term", "chunk_id": "c_01",
@@ -116,6 +117,7 @@ def _validated_extracted(days_until_deadline):
         "earliest_action_date": None,
         "effective_action_deadline": dl.isoformat(),
         "days_remaining": days_until_deadline,
+        "notice_anchor_type": "renewal_start",
     }
 
 
@@ -259,6 +261,7 @@ def test_correct_to_validated_generates_and_regress_clears(user_a):
         "notice_basis": "calendar", "business_day_definition": None,
         "notice_measured_to": "sent", "deemed_receipt_rule": None,
         "notice_method": "written", "notice_recipient": "Counterparty",
+        "notice_anchor_type": "renewal_start",
     }
     r = s.post(f"{BASE_URL}/api/findings/{fid}/correct", json=payload, timeout=90)
     assert r.status_code == 200, r.text
@@ -320,6 +323,7 @@ def test_correct_nochange_noop(user_a):
         "deemed_receipt_rule": ext["deemed_receipt_rule"],
         "notice_method": ext["notice_method"],
         "notice_recipient": ext["notice_recipient"],
+        "notice_anchor_type": ext.get("notice_anchor_type"),
     }
     r = s.post(f"{BASE_URL}/api/findings/{fid}/correct", json=payload, timeout=15)
     assert r.status_code == 200, r.text

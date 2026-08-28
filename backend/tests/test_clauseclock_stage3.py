@@ -15,7 +15,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from dateutil.relativedelta import relativedelta
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://renewal-hub-86.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://contract-tracker-74.preview.emergentagent.com").rstrip("/")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 
@@ -77,6 +77,7 @@ def _seed_finding(user_id, contract_id, extracted=None, sources=None,
             "earliest_action_date": None,
             "effective_action_deadline": None,
             "days_remaining": None,
+            "notice_anchor_type": "renewal_start",
         },
         "sources": sources or [{
             "purpose": "renewal_term", "chunk_id": "c_01",
@@ -169,6 +170,7 @@ def test_correct_recompute_unblocks_deadline(user_a):
         "deemed_receipt_rule": None,
         "notice_method": "written",
         "notice_recipient": "Counterparty",
+        "notice_anchor_type": "renewal_start",
     }
     r = s.post(f"{BASE_URL}/api/findings/{fid}/correct", json=payload, timeout=15)
     assert r.status_code == 200, r.text
@@ -217,6 +219,7 @@ def test_correct_no_changes_is_noop_on_corrected_fields(user_a):
         "notice_basis": "calendar", "business_day_definition": None,
         "notice_measured_to": "sent", "deemed_receipt_rule": None,
         "notice_method": "written", "notice_recipient": "Counterparty",
+        "notice_anchor_type": "renewal_start",
     }
     fid = _seed_finding(uid, cid, extracted=extracted, validation_status="validated")
     # Add prior corrected_fields
@@ -298,6 +301,7 @@ def test_persistence_after_actions(user_a):
         "notice_basis": "calendar", "business_day_definition": None,
         "notice_measured_to": "sent", "deemed_receipt_rule": None,
         "notice_method": "written", "notice_recipient": "X",
+        "notice_anchor_type": "renewal_start",
     }, timeout=15)
     s.post(f"{BASE_URL}/api/findings/{f3}/dismiss", timeout=15)
 

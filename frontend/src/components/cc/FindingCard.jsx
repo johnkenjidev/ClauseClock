@@ -219,8 +219,18 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
     } finally { setBusy(false); }
   };
 
-  const grouped = {};
+  const uniqueSources = [];
+  const seenSources = new Set();
   for (const s of finding.sources || []) {
+    const key = `${s.purpose}|${s.quote}|${s.document_id || ""}|${s.location}`;
+    if (!seenSources.has(key)) {
+      seenSources.add(key);
+      uniqueSources.push(s);
+    }
+  }
+
+  const grouped = {};
+  for (const s of uniqueSources) {
     (grouped[s.purpose] = grouped[s.purpose] || []).push(s);
   }
   const orderedPurposes = Object.keys(PURPOSE_LABEL).filter((p) => grouped[p]);
