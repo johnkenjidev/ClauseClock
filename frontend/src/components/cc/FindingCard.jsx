@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Check, Pencil, X, Bell, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { LegalFooter, FindingBanner } from "@/components/cc/Primitives";
+import { LegalFooter, FindingBanner, BTN_TERTIARY } from "@/components/cc/Primitives";
 import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
+import { AmendmentDiffDisclosure } from "@/components/cc/AmendmentDiff";
 
 const STATE_BADGE = {
   confirmed: { label: "Confirmed", cls: "bg-seal text-paper" },
@@ -178,18 +179,9 @@ const RANK_LABEL = {
   opportunity: "Opportunity", informational: "Informational",
 };
 
-const localDaysRemaining = (deadlineIso) => {
-  if (!deadlineIso) return null;
-  const [y, m, d] = deadlineIso.split("-").map(Number);
-  const deadlineDate = new Date(y, m - 1, d);
-  deadlineDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffTime = deadlineDate - today;
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
+import { localDaysRemaining } from "@/lib/dates";
 
-export function FindingCard({ finding, onChanged, readOnly = false }) {
+export function FindingCard({ finding, onChanged, readOnly = false, supersededRecord = null }) {
   const [open, setOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -202,11 +194,12 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
   const isGeneric = GENERIC_TYPES.includes(finding.type);
   const needsReview = finding.validation_status === "needs_review";
   const dr = localDaysRemaining(e.effective_action_deadline);
+  const lapsed = dr != null && dr < 0;
   const t = needsReview
     ? "pending"
-    : (dr != null && dr <= 14 && finding.action_required)
+    : (dr != null && dr >= 0 && dr <= 14 && finding.action_required)
       ? "stamp"
-      : (dr != null && dr <= 60)
+      : (dr != null && dr >= 0 && dr <= 60)
         ? "pending"
         : "neutral";
   const badge = STATE_BADGE[finding.state];
@@ -219,19 +212,21 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
     } finally { setBusy(false); }
   };
 
-  const uniqueSources = [];
-  const seenSources = new Set();
-  for (const s of finding.sources || []) {
-    const key = `${s.purpose}|${s.quote}|${s.document_id || ""}|${s.location}`;
-    if (!seenSources.has(key)) {
-      seenSources.add(key);
-      uniqueSources.push(s);
-    }
-  }
-
   const grouped = {};
-  for (const s of uniqueSources) {
+  for (const s of finding.sources || []) {
     (grouped[s.purpose] = grouped[s.purpose] || []).push(s);
+  }
+  // Presentation-level dedup: collapse rows with the same purpose + quote +
+  // location (e.g. a "renewal_term" clause tagged for both the initial term
+  // and the renewal period surfaces as one row, not two).
+  for (const p of Object.keys(grouped)) {
+    const seen = new Set();
+    grouped[p] = grouped[p].filter((s) => {
+      const key = `${(s.quote || "").trim()}|${String(s.document_id || "")}|${s.location || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   const orderedPurposes = Object.keys(PURPOSE_LABEL).filter((p) => grouped[p]);
 
@@ -245,20 +240,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
 
   const heroIso = e.effective_action_deadline;
 
-  const renderAnchorFact = () => {
-    const anchorType = e.notice_anchor_type;
-    const days = e.notice_days_min;
-    const basis = e.notice_basis || "calendar";
-    if (anchorType === "term_end") {
-      return `Term ends ${longDate(e.current_term_end)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
-    } else if (anchorType === "renewal_start") {
-      return `Renews ${longDate(e.next_renewal_date)} − ${days} ${basis} days = ${longDate(e.effective_action_deadline)}`;
-    } else {
-      return "Notice anchor requires review";
-    }
-  };
-
-  const urgent = dr != null && dr <= 14 && finding.action_required;
+  const urgent = dr != null && dr >= 0 && dr <= 14 && finding.action_required;
 
   return (
     <div data-testid={`finding-${finding.id}`}
@@ -516,7 +498,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                 <p className="cc-plain-english mt-2" data-testid="finding-why">{finding.why_it_matters}</p>
               </>
             )}
-            {finding.suggested_action && (
+            {finding.suggested_action && !lapsed && (
               <>
                 <p className="cc-eyebrow mt-4">Suggested action</p>
                 <p className="cc-plain-english mt-2" data-testid="finding-suggested-action">{finding.suggested_action}</p>
@@ -546,13 +528,13 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           {finding.state === "unconfirmed" ? (
             <Button size="sm" disabled={busy} data-testid="finding-confirm-btn"
               onClick={() => act("confirm")}
-              className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
+              className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5 font-semibold">
               <Check className="h-4 w-4" strokeWidth={2.5} /> Confirm deadline
             </Button>
           ) : (finding.action_required && (dr === null || dr >= 0)) ? (
             <Button size="sm" data-testid="finding-prepare-notice-btn"
-              onClick={() => navigate("/app/action-center")}
-              className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4 gap-1.5">
+              onClick={() => navigate("/app/actions")}
+              className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5 font-semibold">
               <Check className="h-4 w-4" strokeWidth={2.5} /> Prepare notice
             </Button>
           ) : (
@@ -562,29 +544,33 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           )}
           <Button size="sm" variant="outline" disabled={busy} data-testid="finding-correct-btn"
             onClick={() => setCorrectOpen(true)}
-            className={`rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:bg-card ${isComposite ? "hidden" : ""}`}>
+            className={`rounded-full h-9 px-4 gap-1.5 border-rule text-ink hover:text-ink hover:border-ink-soft hover:bg-card font-semibold ${isComposite ? "hidden" : ""}`}>
             <Pencil className="h-4 w-4" strokeWidth={2} /> Correct
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} data-testid="finding-dismiss-btn"
             onClick={() => act("dismiss")}
-            className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-stamp hover:bg-card">
+            className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-ink hover:bg-card font-semibold">
             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
           </Button>
           </div>
         </div>
         )}
 
-        {!readOnly && !needsReview && heroIso && (
+        {!readOnly && !needsReview && heroIso && !lapsed && (
           <RemindersBlock findingId={finding.id} deadline={heroIso} />
+        )}
+
+        {supersededRecord && (
+          <AmendmentDiffDisclosure oldFinding={supersededRecord} newFinding={finding} type={finding.type} />
         )}
 
         {/* Clause drawer toggle */}
         <button
           data-testid="clause-drawer-toggle"
           onClick={() => setOpen((o) => !o)}
-          className="mt-6 cc-section-ref flex items-center gap-1.5 text-ink hover:text-seal transition-colors">
-          Show the contract language
-          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          className={`mt-6 ${BTN_TERTIARY} transition-colors`}>
+          <span>{open ? "Hide the contract language" : "Show the contract language"}</span>
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </button>
       </div>
 
@@ -620,37 +606,83 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
           </div>
         )}
 
-        {/* 2. Timeline fact row (Term ends / Renews) */}
+        {/* 2. Deadline state + factual consequence */}
         <div className="pt-2 border-t border-rule space-y-3">
-          <p className="cc-days-remaining text-sm font-semibold text-ink leading-snug font-sans">
-            {renderAnchorFact()}
-          </p>
+          {needsReview ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-needs-review-mobile">NEEDS REVIEW</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed">
+                {finding.validation_notes?.[0] || "This finding needs review before a deadline can be shown."}
+              </p>
+            </>
+          ) : isTermination ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-termination-headline-mobile">{terminationHeadline(e)}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-termination-subhead-mobile">{terminationSubhead(e)}</p>
+            </>
+          ) : isPrice && !heroIso ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-price-headline-mobile">{priceHeadline(e)}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-price-subhead-mobile">{priceSubhead(e)}</p>
+            </>
+          ) : isGeneric && !heroIso ? (
+            <>
+              <p className="text-sm font-sans font-semibold text-ink" data-testid="finding-generic-headline-mobile">{(GENERIC_LABEL[finding.type] || "Obligation").toUpperCase()}</p>
+              <p className="text-xs font-sans text-ink-soft leading-relaxed" data-testid="finding-generic-subhead-mobile">{genericSubhead(finding)}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-sans font-bold text-ink" data-testid="finding-hero-date-mobile">{heroDate(heroIso) || "—"}</p>
+              <p className="text-xs font-sans text-ink-soft" data-testid="finding-days-remaining-mobile">
+                {dr != null
+                  ? dr < 0
+                    ? `${Math.abs(dr)} day${Math.abs(dr) === 1 ? "" : "s"} past deadline`
+                    : `${dr} day${dr === 1 ? "" : "s"} remaining`
+                  : "Deadline not calculated"}
+              </p>
+            </>
+          )}
 
-          {dr != null && dr < 0 && finding.type === "renewal_notice" && (
+          {lapsed && finding.type === "renewal_notice" && (
             <div className="p-3 rounded-sm border border-rule bg-card/60 text-ink-soft text-xs font-sans leading-relaxed" data-testid="lapsed-disclaimer-mobile">
               Non-renewal window elapsed. This deadline can no longer be met under the cited clause. Contract is scheduled to renew {longDate(e.next_renewal_date)}.
             </div>
           )}
 
-          {/* Primary Action Button directly below the facts */}
+          {/* Confirm / Correct / Dismiss */}
           {!readOnly && (
-            <div className="pt-1">
+            <div className="pt-1 flex flex-wrap items-center gap-2">
               {finding.state === "unconfirmed" ? (
-                <Button size="sm" disabled={busy} onClick={() => act("confirm")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" disabled={busy} data-testid="finding-confirm-btn-mobile" onClick={() => act("confirm")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Confirm deadline
                 </Button>
               ) : (finding.action_required && (dr === null || dr >= 0)) ? (
-                <Button size="sm" onClick={() => navigate("/app/action-center")} className="bg-ink text-paper hover:bg-ink/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/actions")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Prepare notice
                 </Button>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft font-semibold font-sans">
-                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft" /> Confirmed
+                <span className="inline-flex items-center gap-1.5 text-xs text-seal font-semibold font-sans" data-testid="finding-confirmed-badge-mobile">
+                  <span className="h-1.5 w-1.5 rounded-full bg-seal" /> Confirmed
                 </span>
               )}
+              {!isComposite && (
+                <button data-testid="finding-correct-btn-mobile" disabled={busy} onClick={() => setCorrectOpen(true)}
+                  className="border border-rule text-ink hover:border-ink-soft hover:bg-card rounded-full h-8 px-3 text-xs bg-transparent font-sans font-semibold cursor-pointer transition-colors">
+                  Correct
+                </button>
+              )}
+              <button data-testid="finding-dismiss-btn-mobile" disabled={busy} onClick={() => act("dismiss")}
+                className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer">
+                Dismiss
+              </button>
             </div>
           )}
         </div>
+
+        {/* Amendment-diff disclosure, when this finding replaces a preserved reviewed one */}
+        {supersededRecord && (
+          <AmendmentDiffDisclosure oldFinding={supersededRecord} newFinding={finding} type={finding.type} mobile />
+        )}
 
         {/* 3. Concise visible explanation with disclosure */}
         {!needsReview && finding.plain_english && (
@@ -658,13 +690,14 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
             <span className="cc-eyebrow font-sans">Explanation</span>
             <p className="cc-plain-english text-xs text-ink leading-relaxed mt-1 font-sans">{finding.plain_english}</p>
             
-            {(finding.why_it_matters || finding.suggested_action) && (
+            {(finding.why_it_matters || (finding.suggested_action && !lapsed)) && (
               <div className="pt-1">
                 <button 
                   onClick={() => setExplanationOpen(!explanationOpen)} 
-                  className="cc-section-ref text-xs text-ink-soft hover:text-ink hover:underline flex items-center gap-1 bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink font-sans font-semibold bg-transparent border-0 p-0 cursor-pointer transition-colors"
                 >
-                  {explanationOpen ? "Hide explanation details ⌃" : "Show explanation details ⌄"}
+                  <span>{explanationOpen ? "Hide explanation details" : "Show explanation details"}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${explanationOpen ? "rotate-180" : ""}`} />
                 </button>
                 
                 {explanationOpen && (
@@ -675,7 +708,7 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
                         <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.why_it_matters}</p>
                       </div>
                     )}
-                    {finding.suggested_action && (
+                    {finding.suggested_action && !lapsed && (
                       <div>
                         <span className="text-[10px] text-ink-soft font-bold uppercase tracking-wider font-sans">Suggested action</span>
                         <p className="text-xs text-ink mt-0.5 leading-relaxed font-sans">{finding.suggested_action}</p>
@@ -692,14 +725,16 @@ export function FindingCard({ finding, onChanged, readOnly = false }) {
         <div className="pt-2 border-t border-rule">
           <button
             onClick={() => setOpen((o) => !o)}
-            className="cc-section-ref flex items-center gap-1 text-ink hover:text-seal transition-colors font-semibold font-sans text-xs bg-transparent border-0 p-0 cursor-pointer"
+            data-testid="clause-drawer-toggle-mobile"
+            className={`${BTN_TERTIARY} transition-colors text-xs`}
           >
-            {open ? "Hide contract language ⌃" : "Show contract language ⌄"}
+            <span>{open ? "Hide contract language" : "Show contract language"}</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
           </button>
         </div>
 
         {/* 5. Reminders Block (placed correctly after evidence toggle on mobile) */}
-        {!readOnly && !needsReview && heroIso && (
+        {!readOnly && !needsReview && heroIso && !lapsed && (
           <div className="pt-2 border-t border-rule">
             <RemindersBlock findingId={finding.id} deadline={heroIso} />
           </div>
@@ -776,7 +811,7 @@ function RemindersBlock({ findingId, deadline }) {
           className="bg-card border border-rule rounded-md h-9 w-20 px-2 cc-days-remaining" />
         <span className="cc-days-remaining">days before the deadline</span>
         <Button size="sm" disabled={busy || days === "" } data-testid="reminder-add-btn" onClick={add}
-          className="bg-ink text-paper hover:bg-ink/90 rounded-full h-9 px-4">
+          className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 font-semibold">
           {busy ? "Saving…" : "Set reminder"}
         </Button>
       </div>
