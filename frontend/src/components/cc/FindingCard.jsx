@@ -533,7 +533,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
             </Button>
           ) : (finding.action_required && (dr === null || dr >= 0)) ? (
             <Button size="sm" data-testid="finding-prepare-notice-btn"
-              onClick={() => navigate("/app/action-center")}
+              onClick={() => navigate("/app/actions")}
               className="bg-seal text-paper hover:bg-seal/90 rounded-full h-9 px-4 gap-1.5 font-semibold">
               <Check className="h-4 w-4" strokeWidth={2.5} /> Prepare notice
             </Button>
@@ -657,7 +657,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                   Confirm deadline
                 </Button>
               ) : (finding.action_required && (dr === null || dr >= 0)) ? (
-                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/action-center")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
+                <Button size="sm" data-testid="finding-prepare-notice-btn-mobile" onClick={() => navigate("/app/actions")} className="bg-seal text-paper hover:bg-seal/90 rounded-full h-8 px-4 font-semibold font-sans text-xs">
                   Prepare notice
                 </Button>
               ) : (
