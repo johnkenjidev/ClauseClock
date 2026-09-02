@@ -35,8 +35,9 @@ function icsText(value) {
 }
 
 function downloadDeadlineCalendar(finding, deadline) {
-  const title = CALENDAR_LABEL[finding.type] || "ClauseClock contract deadline";
-  const description = "Deadline tracked by ClauseClock. Verify the cited contract language before acting.";
+  const label = CALENDAR_LABEL[finding.type] || "Contract deadline";
+  const title = `ClauseClock · ${label}`;
+  const description = `ClauseClock finding: ${label}. Deadline: ${deadline}. Verify the cited contract language before acting.`;
   const uid = `clauseclock-${finding.id || deadline}@clauseclock`;
   const calendar = [
     "BEGIN:VCALENDAR",
@@ -74,7 +75,7 @@ export function FindingCard(props) {
   const reviewed = finding?.state === "confirmed" || finding?.state === "corrected";
   const canAddToCalendar = !readOnly
     && reviewed
-    && finding?.validation_status !== "needs_review"
+    && finding?.validation_status === "validated"
     && finding?.action_required
     && deadline
     && daysRemaining != null
