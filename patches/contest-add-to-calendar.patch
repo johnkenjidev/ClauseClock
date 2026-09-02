@@ -1,0 +1,23 @@
+diff --git a/frontend/src/components/cc/FindingCard.jsx b/frontend/src/components/cc/FindingCard.jsx
+--- a/frontend/src/components/cc/FindingCard.jsx
++++ b/frontend/src/components/cc/FindingCard.jsx
+@@
+ import { LegalFooter, FindingBanner, BTN_TERTIARY } from "@/components/cc/Primitives";
+ import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
+ import { AmendmentDiffDisclosure } from "@/components/cc/AmendmentDiff";
++import { AddToCalendarButton } from "@/components/cc/AddToCalendarButton";
+@@
+           <Button size="sm" variant="ghost" disabled={busy} data-testid="finding-dismiss-btn"
+             onClick={() => act("dismiss")}
+             className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-ink hover:bg-card font-semibold">
+             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
+           </Button>
++          <AddToCalendarButton finding={finding} />
+           </div>
+@@
+               <button data-testid="finding-dismiss-btn-mobile" disabled={busy} onClick={() => act("dismiss")}
+                 className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer">
+                 Dismiss
+               </button>
++              <AddToCalendarButton finding={finding} mobile />
+             </div>
