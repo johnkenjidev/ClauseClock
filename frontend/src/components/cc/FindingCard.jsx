@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { LegalFooter, FindingBanner, BTN_TERTIARY } from "@/components/cc/Primitives";
 import { CorrectFindingDialog } from "@/components/cc/CorrectFindingDialog";
 import { AmendmentDiffDisclosure } from "@/components/cc/AmendmentDiff";
+import { AddToCalendarButton } from "@/components/cc/AddToCalendarButton";
 
 const STATE_BADGE = {
   confirmed: { label: "Confirmed", cls: "bg-seal text-paper" },
@@ -570,6 +571,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
             className="rounded-full h-9 px-4 gap-1.5 text-ink-soft hover:text-ink hover:bg-card font-semibold">
             <X className="h-4 w-4" strokeWidth={2} /> Dismiss
           </Button>
+          <AddToCalendarButton finding={finding} />
           </div>
         </div>
         )}
@@ -702,6 +704,7 @@ export function FindingCard({ finding, onChanged, readOnly = false, supersededRe
                 className="text-ink-soft hover:text-ink hover:underline text-xs bg-transparent border-0 p-0 font-sans font-semibold cursor-pointer">
                 Dismiss
               </button>
+              <AddToCalendarButton finding={finding} mobile />
             </div>
           )}
         </div>
