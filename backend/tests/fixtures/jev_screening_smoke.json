@@ -1,0 +1,80 @@
+{
+  "benchmark_date": "2026-09-30",
+  "purpose": "Shadow-only Jev semantic screening smoke cases for ClauseClock. No production authority.",
+  "family_choice_cases": [
+    {
+      "id": "renewal_auto",
+      "expected": "renewal_notice",
+      "text": "Upon expiration of the Initial Term, this Agreement shall automatically renew for successive twelve (12) month terms unless either party provides written notice of non-renewal at least sixty (60) days prior to the end of the then-current term."
+    },
+    {
+      "id": "general_notice",
+      "expected": "notice_requirement",
+      "text": "Any notice under this Agreement shall be delivered in writing by certified mail to the General Counsel at the address stated below."
+    },
+    {
+      "id": "price_increase",
+      "expected": "price_increase",
+      "text": "Beginning on the first anniversary, the annual fees shall automatically increase by three percent (3%) each year."
+    },
+    {
+      "id": "termination_convenience",
+      "expected": "termination_right",
+      "text": "Customer may terminate this Agreement for convenience upon sixty (60) days' prior written notice to Supplier."
+    },
+    {
+      "id": "invoice_dispute",
+      "expected": "invoice_dispute",
+      "text": "Customer must notify Supplier of any disputed invoice within thirty (30) days after the invoice date."
+    },
+    {
+      "id": "service_credit",
+      "expected": "service_credit",
+      "text": "If monthly uptime falls below 99.9%, Customer may claim a service credit equal to ten percent (10%) of the monthly fee."
+    },
+    {
+      "id": "warranty_claim",
+      "expected": "warranty_claim",
+      "text": "Claims for breach of warranty must be submitted in writing within ninety (90) days after delivery."
+    },
+    {
+      "id": "late_fee",
+      "expected": "fee_or_penalty",
+      "text": "Amounts not paid when due will accrue a late charge of 1.5% per month until paid."
+    },
+    {
+      "id": "rebate",
+      "expected": "rebate_or_refund",
+      "text": "Supplier will issue Customer a five percent (5%) volume rebate after annual purchases exceed $500,000."
+    },
+    {
+      "id": "nda_unrelated",
+      "expected": "none",
+      "text": "The receiving party shall protect Confidential Information using the same degree of care it uses for its own confidential information."
+    },
+    {
+      "id": "manual_renewal",
+      "expected": "renewal_notice",
+      "text": "This Agreement shall not automatically renew. Any extension beyond the Initial Term must be by written amendment signed by both parties."
+    },
+    {
+      "id": "nonrenewal_only",
+      "expected": "renewal_notice",
+      "text": "Either party may elect not to renew the Agreement by giving written notice at least sixty (60) days before expiration of the then-current term."
+    }
+  ],
+  "targeted_profiles": {
+    "termination_right": {
+      "true_criteria": "The chunk states an explicit right to terminate/cancel the agreement before its natural expiry, including convenience, cause, break, or early-exit rights.",
+      "false_criteria": "The chunk concerns only non-renewal, ordinary expiry, extension, or generic notice and does not grant an early termination right."
+    },
+    "price_increase": {
+      "true_criteria": "The chunk states a change/increase/escalation/uplift/indexation to the contract price or recurring fee, or a right to object to such a price increase.",
+      "false_criteria": "The chunk concerns only late charges, default interest, penalties, service credits, rebates/refunds, or other amounts that are not an increase to the base contract price/fee."
+    },
+    "renewal_notice": {
+      "true_criteria": "The chunk states contract term, effective date, expiry, renewal/non-renewal, or notice requirements specifically tied to renewal/non-renewal.",
+      "false_criteria": "The chunk is only a general notice provision or another clause family without renewal/non-renewal/term content."
+    }
+  }
+}
